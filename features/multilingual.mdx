@@ -1,0 +1,600 @@
+---
+title: 'Multi-Language Support (i18n)'
+description: 'Internationalization system with next-intl supporting English and Spanish locales'
+icon: 'language'
+---
+
+## Overview
+
+Servineo Frontend implements comprehensive internationalization (i18n) using **next-intl**, supporting multiple languages throughout the application. The system provides seamless language switching, locale-aware routing, and translated content for all user-facing text.
+
+## Supported Languages
+
+<CardGroup cols={2}>
+  <Card title="English (en)" icon="flag-usa">
+    Primary language - Default locale
+  </Card>
+  <Card title="Spanish (es)" icon="flag">
+    Secondary language - Bolivia market
+  </Card>
+</CardGroup>
+
+## Configuration
+
+### Routing Configuration
+
+The i18n routing is configured in `src/i18n/routing.ts`:
+
+```typescript title="i18n Routing Setup"
+import { defineRouting } from 'next-intl/routing';
+
+export const routing = defineRouting({
+  // A list of all locales that are supported
+  locales: ['en', 'es'],
+  
+  // Used when no locale matches
+  defaultLocale: 'en',
+});
+```
+
+### Locale Detection
+
+Next.js automatically detects and routes based on locale:
+
+```
+/en/login          → English login page
+/es/login          → Spanish login page
+/payment/facturas  → Falls back to default (English)
+/es/payment/facturas → Spanish invoices page
+```
+
+## Translation Files
+
+Translation messages are stored in JSON files in the `messages/` directory:
+
+```
+messages/
+├── en.json    (English translations)
+└── es.json    (Spanish translations)
+```
+
+### Message Structure
+
+```json title="messages/en.json (excerpt)"
+{
+  "HeroSection": {
+    "title": "Find the perfect professional",
+    "subtitle": "We connect your home with verified experts in your city.",
+    "placeholder": "what service do you need?",
+    "search": "Search",
+    "professional": "professionals",
+    "Projects completed": "Projects completed",
+    "Overall grade": "Overall grade"
+  },
+  "Categories": {
+    "Todos": "All",
+    "Albañil": "Mason",
+    "Carpintero": "Carpenter",
+    "Electricista": "Electrician",
+    "Fontanero": "Plumber",
+    "Pintor": "Painter"
+  },
+  "Login": {
+    "title": "Welcome Back",
+    "mode": "Sign in to your account",
+    "form": {
+      "email": {
+        "label": "Email Address",
+        "placeholder": "Enter your email"
+      },
+      "password": {
+        "label": "Password",
+        "placeholder": "Enter your password"
+      }
+    },
+    "errors": {
+      "invalidEmail": "Please enter a valid email address",
+      "passwordMinLength": "Password must be at least 6 characters",
+      "invalidCredentials": "Invalid email or password",
+      "connectionError": "Could not connect to server"
+    },
+    "success": {
+      "title": "Success",
+      "welcome": "Welcome back, {name}!"
+    },
+    "buttons": {
+      "login": "Sign In",
+      "loading": "Signing in..."
+    },
+    "links": {
+      "forgotPassword": "Forgot password?",
+      "noAccount": "Don't have an account?",
+      "register": "Sign up"
+    }
+  },
+  "search": {
+    "placeholder": "What service do you need?",
+    "buttonSearch": "Search",
+    "clearSearch": "Clear search",
+    "recentSearches": "Recent searches",
+    "advancedSearch": "Advanced Search",
+    "titleOnly": "Search only in job title",
+    "exactWords": "Exact words",
+    "noResults": "No results found"
+  }
+}
+```
+
+```json title="messages/es.json (excerpt)"
+{
+  "HeroSection": {
+    "title": "Encuentra al profesional perfecto",
+    "subtitle": "Conectamos tu hogar con expertos verificados en tu ciudad.",
+    "placeholder": "¿qué servicio necesitas?",
+    "search": "Buscar",
+    "professional": "profesionales",
+    "Projects completed": "Proyectos completados",
+    "Overall grade": "Calificación general"
+  },
+  "Categories": {
+    "Todos": "Todos",
+    "Albañil": "Albañil",
+    "Carpintero": "Carpintero",
+    "Electricista": "Electricista",
+    "Fontanero": "Fontanero",
+    "Pintor": "Pintor"
+  },
+  "Login": {
+    "title": "Bienvenido de Nuevo",
+    "mode": "Inicia sesión en tu cuenta",
+    "form": {
+      "email": {
+        "label": "Correo Electrónico",
+        "placeholder": "Ingresa tu correo"
+      },
+      "password": {
+        "label": "Contraseña",
+        "placeholder": "Ingresa tu contraseña"
+      }
+    },
+    "errors": {
+      "invalidEmail": "Por favor ingresa un correo válido",
+      "passwordMinLength": "La contraseña debe tener al menos 6 caracteres",
+      "invalidCredentials": "Correo o contraseña inválidos",
+      "connectionError": "No se pudo conectar con el servidor"
+    },
+    "success": {
+      "title": "Éxito",
+      "welcome": "¡Bienvenido de nuevo, {name}!"
+    },
+    "buttons": {
+      "login": "Iniciar Sesión",
+      "loading": "Iniciando sesión..."
+    },
+    "links": {
+      "forgotPassword": "¿Olvidaste tu contraseña?",
+      "noAccount": "¿No tienes cuenta?",
+      "register": "Regístrate"
+    }
+  },
+  "search": {
+    "placeholder": "¿Qué servicio necesitas?",
+    "buttonSearch": "Buscar",
+    "clearSearch": "Limpiar búsqueda",
+    "recentSearches": "Búsquedas recientes",
+    "advancedSearch": "Búsqueda Avanzada",
+    "titleOnly": "Buscar solo en título del trabajo",
+    "exactWords": "Palabras exactas",
+    "noResults": "No se encontraron resultados"
+  }
+}
+```
+
+## Using Translations
+
+### useTranslations Hook
+
+The primary way to access translations in components:
+
+```tsx title="Basic Translation Usage"
+import { useTranslations } from 'next-intl';
+
+export default function LoginPage() {
+  const t = useTranslations('Login');
+  
+  return (
+    <div>
+      <h1>{t('title')}</h1>
+      <p>{t('mode')}</p>
+      
+      <input 
+        type="email" 
+        placeholder={t('form.email.placeholder')}
+      />
+      
+      <button>{t('buttons.login')}</button>
+    </div>
+  );
+}
+```
+
+### Nested Translation Keys
+
+Access deeply nested translations using dot notation:
+
+```tsx
+const t = useTranslations('Login');
+
+t('form.email.label')           // "Email Address" (en)
+t('form.password.placeholder')  // "Enter your password" (en)
+t('errors.invalidEmail')        // "Please enter a valid email address" (en)
+```
+
+### Dynamic Values (Interpolation)
+
+Pass dynamic values to translations:
+
+```tsx title="Translation with Variables"
+const t = useTranslations('Login');
+const userName = "John Doe";
+
+// Message: "Welcome back, {name}!"
+const welcomeMessage = t('success.welcome', { name: userName });
+// Result: "Welcome back, John Doe!"
+```
+
+### Pluralization
+
+Handle singular/plural forms:
+
+```json title="Plural Messages"
+{
+  "jobOffers": {
+    "map": {
+      "availableOffers": {
+        "singular": "available offer",
+        "plural": "available offers"
+      }
+    }
+  }
+}
+```
+
+```tsx title="Using Plurals"
+const t = useTranslations('jobOffers.map');
+const count = 5;
+
+const label = count === 1 
+  ? t('availableOffers.singular')
+  : t('availableOffers.plural');
+  
+// Result: "5 available offers"
+```
+
+## Form Validation with Translations
+
+### Zod Schema with i18n
+
+```typescript title="Translated Validation Messages"
+import { useTranslations } from 'next-intl';
+import { z } from 'zod';
+import { useMemo } from 'react';
+
+export default function LoginPage() {
+  const t = useTranslations('Login');
+  
+  // ✅ Use useMemo to prevent recreation on every render
+  const loginSchema = useMemo(
+    () => z.object({
+      email: z.string().email(t('errors.invalidEmail')),
+      password: z.string().min(6, t('errors.passwordMinLength')),
+    }),
+    [t]
+  );
+  
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    resolver: zodResolver(loginSchema),
+  });
+  
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <input {...register('email')} />
+      {errors.email && <p>{errors.email.message}</p>}
+      
+      <input {...register('password')} />
+      {errors.password && <p>{errors.password.message}</p>}
+    </form>
+  );
+}
+```
+
+<Warning>
+Always wrap translation-dependent schemas in `useMemo` to prevent recreation on every render, which would bypass React Hook Form's validation caching.
+</Warning>
+
+## Search Component Translations
+
+```tsx title="Translated Search Component"
+import { useTranslations } from 'next-intl';
+
+export function SearchCheckboxes(props) {
+  const t = useTranslations('search');
+  
+  return (
+    <div>
+      <label>
+        <input type="checkbox" {...props} />
+        <span>{t('titleOnly')}</span>
+      </label>
+      
+      <label>
+        <input type="checkbox" {...props} />
+        <span>{t('exactWords')}</span>
+      </label>
+    </div>
+  );
+}
+```
+
+## Locale-Aware Routing
+
+### Navigation Component
+
+The i18n navigation utilities (`src/i18n/navigation.ts`) provide locale-aware routing:
+
+```typescript title="Locale-Aware Navigation"
+import { createSharedPathnamesNavigation } from 'next-intl/navigation';
+import { routing } from './routing';
+
+export const { Link, redirect, usePathname, useRouter } = 
+  createSharedPathnamesNavigation(routing);
+```
+
+### Using i18n Link
+
+```tsx title="Locale-Aware Links"
+import { Link } from '@/i18n/navigation';
+
+<Link href="/payment/facturas">
+  {t('links.invoices')}
+</Link>
+
+// Automatically becomes:
+// /en/payment/facturas  (English)
+// /es/payment/facturas  (Spanish)
+```
+
+### Programmatic Navigation
+
+```tsx title="Router with Locale"
+import { useRouter } from '@/i18n/navigation';
+
+const router = useRouter();
+
+// Navigate while preserving locale
+router.push('/dashboard');
+
+// In English context: /en/dashboard
+// In Spanish context: /es/dashboard
+```
+
+## Server-Side Translations
+
+For server components and API routes:
+
+```typescript title="Server-Side i18n"
+import { getTranslations } from 'next-intl/server';
+
+export async function generateMetadata({ params: { locale } }) {
+  const t = await getTranslations({ locale, namespace: 'Metadata' });
+  
+  return {
+    title: t('title'),
+    description: t('description'),
+  };
+}
+```
+
+## Language Switcher
+
+### Implementation Example
+
+```tsx title="Language Switcher Component"
+import { useLocale } from 'next-intl';
+import { useRouter, usePathname } from '@/i18n/navigation';
+
+export function LanguageSwitcher() {
+  const locale = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+  
+  const switchLocale = (newLocale: string) => {
+    // Preserve current path, change locale
+    router.replace(pathname, { locale: newLocale });
+  };
+  
+  return (
+    <div className="flex gap-2">
+      <button
+        onClick={() => switchLocale('en')}
+        className={locale === 'en' ? 'font-bold' : ''}
+      >
+        English
+      </button>
+      <button
+        onClick={() => switchLocale('es')}
+        className={locale === 'es' ? 'font-bold' : ''}
+      >
+        Español
+      </button>
+    </div>
+  );
+}
+```
+
+## Date & Number Formatting
+
+### Locale-Aware Dates
+
+```tsx title="Date Formatting"
+import { useFormatter } from 'next-intl';
+
+export function DateDisplay({ date }: { date: Date }) {
+  const format = useFormatter();
+  
+  return (
+    <time>
+      {format.dateTime(date, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })}
+    </time>
+  );
+}
+
+// English: "March 14, 2026"
+// Spanish: "14 de marzo de 2026"
+```
+
+### Currency Formatting
+
+```tsx title="Currency Display"
+import { useFormatter } from 'next-intl';
+
+export function PriceDisplay({ amount }: { amount: number }) {
+  const format = useFormatter();
+  
+  return (
+    <span>
+      {format.number(amount, {
+        style: 'currency',
+        currency: 'BOB',
+      })}
+    </span>
+  );
+}
+
+// English: "BOB 150.00"
+// Spanish: "Bs 150,00"
+```
+
+### Relative Time
+
+```tsx title="Relative Time Formatting"
+import { useFormatter } from 'next-intl';
+
+export function TimeAgo({ date }: { date: Date }) {
+  const format = useFormatter();
+  
+  return (
+    <span>
+      {format.relativeTime(date)}
+    </span>
+  );
+}
+
+// English: "2 days ago"
+// Spanish: "hace 2 días"
+```
+
+## Missing Translations
+
+### Fallback Behavior
+
+If a translation key is missing, next-intl falls back gracefully:
+
+```tsx
+t('nonexistent.key')  
+// Returns: "nonexistent.key" (the key itself)
+```
+
+### Development Warnings
+
+In development mode, missing keys log warnings to console:
+
+```
+[next-intl] Missing message: "Login.invalidKey" in locale "en"
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Namespace your translations">
+    Group related translations under common namespaces (Login, Search, Payment)
+  </Step>
+  
+  <Step title="Use meaningful keys">
+    Keys should describe content, not UI location: `errors.invalidEmail` not `input1Error`
+  </Step>
+  
+  <Step title="Keep translations in sync">
+    Ensure all locales have the same keys to avoid missing translations
+  </Step>
+  
+  <Step title="Avoid hardcoded strings">
+    All user-facing text should come from translation files
+  </Step>
+  
+  <Step title="Test with both locales">
+    Verify layouts work with different text lengths (Spanish is typically longer)
+  </Step>
+</Steps>
+
+## Translation Management
+
+### Adding New Translations
+
+<Steps>
+  <Step title="Identify new text">
+    Locate hardcoded strings in your component
+  </Step>
+  
+  <Step title="Add to en.json">
+    Add the English translation with a descriptive key
+  </Step>
+  
+  <Step title="Add to es.json">
+    Add the Spanish translation with the same key
+  </Step>
+  
+  <Step title="Update component">
+    Replace hardcoded text with `t('your.key')`
+  </Step>
+  
+  <Step title="Test both locales">
+    Verify the text appears correctly in both languages
+  </Step>
+</Steps>
+
+## Performance Considerations
+
+- Translation files are loaded once at build time
+- Messages are tree-shaken - only used translations are included
+- Server components receive translations at render time
+- Client components use React Context for translations
+
+<Tip>
+Keep translation files organized and avoid duplicating strings. Use shared keys for common phrases like "Save", "Cancel", "Delete".
+</Tip>
+
+## Middleware Configuration
+
+Next.js middleware handles locale detection:
+
+```typescript title="middleware.ts (typical setup)"
+import createMiddleware from 'next-intl/middleware';
+import { routing } from './i18n/routing';
+
+export default createMiddleware(routing);
+
+export const config = {
+  matcher: ['/', '/(en|es)/:path*']
+};
+```
+
+## Related Documentation
+
+- [Authentication](/features/authentication) - Translated login/signup forms
+- [Search & Filters](/features/search-filters) - Multilingual search interface
+- [Notifications](/features/notifications) - Localized user feedback

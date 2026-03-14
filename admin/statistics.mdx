@@ -1,0 +1,511 @@
+---
+title: 'Admin Statistics'
+description: 'Analytics dashboard and statistics for monitoring platform activity'
+---
+
+## Overview
+
+The Statistics module provides comprehensive analytics for monitoring platform usage, search patterns, user behavior, and system activity. It includes both the main admin dashboard metrics and an advanced statistics page.
+
+## Dashboard Statistics
+
+The admin dashboard at `/user-admin/dashboard` provides high-level metrics:
+
+<CardGroup cols={2}>
+  <Card title="User Statistics" icon="users">
+    Total users and distribution by role (requesters, fixers, visitors, admins)
+  </Card>
+  <Card title="Session Analytics" icon="clock">
+    Session start/end tracking with date range filtering
+  </Card>
+  <Card title="External Modules" icon="grid">
+    Quick access to advanced statistics and appointment tracking
+  </Card>
+  <Card title="Real-time Updates" icon="rotate">
+    Manual refresh capability with timestamp tracking
+  </Card>
+</CardGroup>
+
+## Advanced Statistics Page
+
+The advanced statistics page at `/adminStatistic` provides detailed search analytics:
+
+### Period Selection
+
+Statistics can be filtered by three time periods:
+
+```typescript /adminStatistic/page.tsx
+const [selectedPeriod, setSelectedPeriod] = useState<'semanal' | 'mensual' | 'anual'>('mensual');
+```
+
+- **Weekly** (`semanal`): Last 7 days of activity
+- **Monthly** (`mensual`): Current month's data (default)
+- **Yearly** (`anual`): Annual statistics
+
+### Period Selector UI
+
+```tsx /adminStatistic/page.tsx
+<select
+  value={selectedPeriod}
+  onChange={(e) => setSelectedPeriod(e.target.value as 'semanal' | 'mensual' | 'anual')}
+  className='appearance-none bg-white border border-gray-300 rounded-md px-4 py-2'
+>
+  <option value='semanal'>{t('periods.weekly')}</option>
+  <option value='mensual'>{t('periods.monthly')}</option>
+  <option value='anual'>{t('periods.yearly')}</option>
+</select>
+```
+
+## Statistics API Integration
+
+Statistics are fetched using Redux Toolkit Query:
+
+```typescript /redux/services/dashboardApi.ts
+export interface StatisticsResponse {
+  success: boolean;
+  count: number;
+  period: string;
+  start_date: string;
+  end_date: string;
+  data: SearchDataItem[];
+  filter_statistics: {
+    fixer_name: {
+      'A-C': number;
+      'D-F': number;
+      'G-I': number;
+      'J-L': number;
+      'M-N': number;
+      'O-Q': number;
+      'R-T': number;
+      'U-W': number;
+      'X-Z': number;
+    };
+    city: {
+      Cochabamba: number;
+      'La Paz': number;
+      'Santa Cruz': number;
+      Pando: number;
+      Potosi: number;
+      Sucre: number;
+      Beni: number;
+      Oruro: number;
+      Tarija: number;
+    };
+    job_type: {
+      Carpintero: number;
+      Electricista: number;
+      Plomeria: number;
+      Albañil: number;
+      Mecanico: number;
+      Jardinero: number;
+      Fontanero: number;
+      Pintor: number;
+      Cerrajero: number;
+      Decorador: number;
+    };
+  };
+  user_type_statistics: {
+    visitor: number;
+    requester: number;
+    fixer: number;
+  };
+}
+```
+
+### API Endpoints
+
+```typescript /redux/services/dashboardApi.ts
+export const statisticsApi = baseApi.injectEndpoints({
+  endpoints: (builder) => ({
+    getStatistics: builder.query<StatisticsResponse, 'semanal' | 'mensual' | 'anual'>({
+      query: (period) => {
+        const routes = {
+          semanal: '/searches/semanal',
+          mensual: '/searches/month',
+          anual: '/searches/year',
+        };
+        return {
+          url: routes[period],
+          method: 'GET',
+        };
+      },
+      providesTags: ['Statistics'],
+    }),
+  }),
+});
+
+export const { useGetStatisticsQuery } = statisticsApi;
+```
+
+<Info>
+The API automatically tags results with `['Statistics']` for cache invalidation and optimistic updates.
+</Info>
+
+## Using Statistics in Components
+
+<Steps>
+  <Step title="Import the Hook">
+    Import `useGetStatisticsQuery` from the statistics API
+  </Step>
+  <Step title="Select Period">
+    Choose the time period for statistics (weekly, monthly, or yearly)
+  </Step>
+  <Step title="Fetch Data">
+    Use the query hook to fetch data with automatic loading/error states
+  </Step>
+  <Step title="Transform Data">
+    Convert API response to chart-compatible format
+  </Step>
+  <Step title="Render Charts">
+    Display data using chart components
+  </Step>
+</Steps>
+
+```tsx /adminStatistic/page.tsx
+const { data, error, isLoading, refetch } = useGetStatisticsQuery(selectedPeriod);
+
+// Auto-refetch when period changes
+useEffect(() => {
+  refetch();
+}, [selectedPeriod, refetch]);
+```
+
+## Data Transformation
+
+API data must be transformed for chart components:
+
+```typescript /adminStatistic/page.tsx
+const transformFilterData = (filterData: Record<string, number> | undefined) => {
+  if (!filterData) return [];
+  return Object.entries(filterData).map(([name, value]) => ({
+    name,
+    value: value as number,
+  }));
+};
+
+// Transform data for different charts
+const monthlyData = data ? transformFilterData(data.filter_statistics?.fixer_name) : [];
+const tradesData = data ? transformFilterData(data.filter_statistics?.city) : [];
+const productsData = data ? transformFilterData(data.filter_statistics?.job_type) : [];
+const pieData = data ? transformFilterData(data.user_type_statistics) : [];
+```
+
+## Chart Types
+
+### User Distribution (Pie/Donut Chart)
+
+Shows the breakdown of user types:
+
+```tsx /adminStatistic/page.tsx
+{pieData.length > 0 && (
+  <ChartPieDonut
+    data={pieData}
+    title={t('charts.userDistribution.title')}
+    description={t('charts.userDistribution.description')}
+  />
+)}
+```
+
+### Fixer Name Ranges (Bar Chart)
+
+Displays distribution of fixers by alphabetical ranges:
+
+```tsx /adminStatistic/page.tsx
+{monthlyData.length > 0 && (
+  <ChartBarLabel
+    data={monthlyData}
+    title={t('charts.fixerRanges.title')}
+    description={t('charts.fixerRanges.description')}
+    color='#2563eb'
+    trendText={t('charts.filterStats')}
+    footerText={t('charts.showingTotal')}
+    barSize={90}
+  />
+)}
+```
+
+<Note>
+Fixer names are grouped into ranges: A-C, D-F, G-I, J-L, M-N, O-Q, R-T, U-W, X-Z
+</Note>
+
+### City Distribution (Bar Chart)
+
+Shows search activity by city:
+
+```tsx /adminStatistic/page.tsx
+{tradesData.length > 0 && (
+  <ChartBarLabel
+    data={tradesData}
+    title={t('charts.cities.title')}
+    description={t('charts.cities.description')}
+    color='#10b981'
+    trendText={t('charts.filterStats')}
+    footerText={t('charts.showingTotal')}
+    barSize={70}
+  />
+)}
+```
+
+**Supported Cities**:
+- Cochabamba
+- La Paz
+- Santa Cruz
+- Pando
+- Potosí
+- Sucre
+- Beni
+- Oruro
+- Tarija
+
+### Job Type Distribution (Bar Chart)
+
+Displays search activity by service category:
+
+```tsx /adminStatistic/page.tsx
+{productsData.length > 0 && (
+  <ChartBarLabel
+    data={productsData}
+    title={t('charts.jobTypes.title')}
+    description={t('charts.jobTypes.description')}
+    color='#f59e0b'
+    trendText={t('charts.filterStats')}
+    footerText={t('charts.showingTotal')}
+    barSize={70}
+  />
+)}
+```
+
+**Job Types Tracked**:
+- Carpintero (Carpenter)
+- Electricista (Electrician)
+- Plomería (Plumbing)
+- Albañil (Mason)
+- Mecánico (Mechanic)
+- Jardinero (Gardener)
+- Fontanero (Plumber)
+- Pintor (Painter)
+- Cerrajero (Locksmith)
+- Decorador (Decorator)
+
+## Session Analytics
+
+The main dashboard includes session tracking capabilities:
+
+### Session Start/End Charts
+
+```typescript /user-admin/components/chartsSection.tsx
+interface ChartData {
+  _id: { hour?: number; year?: number; month?: number; day?: number };
+  count: number;
+}
+
+const loadCharts = async () => {
+  const token = localStorage.getItem('adminToken');
+  if (!token) return;
+
+  setLoading(true);
+
+  // Load both charts in parallel
+  const [startData, endData] = await Promise.all([
+    adminAPI.getSessionStartChart(token, dateRange.start, dateRange.end),
+    adminAPI.getSessionEndChart(token, dateRange.start, dateRange.end),
+  ]);
+
+  if (startData.success) setStartChartData(startData.data);
+  if (endData.success) setEndChartData(endData.data);
+};
+```
+
+### Date Range Filtering
+
+Session charts support custom date ranges:
+
+```tsx /user-admin/components/chartsSection.tsx
+<div className={styles.dateControls}>
+  <input
+    type='date'
+    value={dateRange.start}
+    onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+  />
+  <span>to</span>
+  <input
+    type='date'
+    value={dateRange.end}
+    onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+  />
+  <button onClick={loadCharts}>Update</button>
+</div>
+```
+
+### Chart Label Formatting
+
+```typescript /user-admin/components/chartsSection.tsx
+const formatChartLabel = (item: ChartData) => {
+  if (item._id.hour !== undefined) {
+    return `${item._id.hour}:00`;
+  } else {
+    return `${item._id.day}/${item._id.month}/${item._id.year}`;
+  }
+};
+```
+
+<Tip>
+Hourly data shows time in HH:00 format, while daily data shows DD/MM/YYYY format.
+</Tip>
+
+## Session Chart API Endpoints
+
+```typescript /user-admin/lib/api.ts
+getSessionStartChart: async (token: string, date: string, endDate?: string) => {
+  const params = new URLSearchParams({ date });
+  if (endDate) params.append('enddate', endDate);
+
+  const response = await fetch(`${API_BASE}/api/admin/chart/session/start?${params}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+  return response.json();
+},
+
+getSessionEndChart: async (token: string, date: string, endDate?: string) => {
+  const params = new URLSearchParams({ date });
+  if (endDate) params.append('enddate', endDate);
+
+  const response = await fetch(`${API_BASE}/api/admin/chart/session/end?${params}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+  return response.json();
+}
+```
+
+## Loading States
+
+### Statistics Page Loading
+
+```tsx /adminStatistic/page.tsx
+if (isLoading) {
+  return (
+    <main className='flex min-h-screen flex-col items-center justify-center p-4'>
+      <div className='text-lg'>{t('loading')}</div>
+    </main>
+  );
+}
+```
+
+### Error Handling
+
+```tsx /adminStatistic/page.tsx
+if (error) {
+  return (
+    <main className='flex min-h-screen flex-col items-center justify-center p-4'>
+      <div className='text-lg text-red-500'>{t('error')}</div>
+    </main>
+  );
+}
+```
+
+<Warning>
+Always handle loading and error states to provide a smooth user experience when data fetching fails or takes time.
+</Warning>
+
+## External Administrative Modules
+
+The dashboard provides quick access to specialized modules:
+
+```tsx /user-admin/components/adminDashboard.tsx
+<button
+  onClick={() =>
+    window.open(
+      'https://servineo.app/es/adminStatistic',
+      '_self',
+    )
+  }
+  className={styles.moduleButton}
+>
+  <div className={styles.moduleIcon}>📊</div>
+  <div className={styles.moduleContent}>
+    <h4>Advanced Statistics</h4>
+    <p>Detailed metrics and system analysis</p>
+    <div className={styles.moduleMeta}>
+      <span className={styles.moduleStatus}>Available</span>
+      <span className={styles.moduleTeam}>Analytics Group</span>
+    </div>
+  </div>
+</button>
+
+<button
+  onClick={() =>
+    window.open(
+      'https://servineo.app/es/tracking-appointments',
+      '_self',
+    )
+  }
+  className={styles.moduleButton}
+>
+  <div className={styles.moduleIcon}>📍</div>
+  <div className={styles.moduleContent}>
+    <h4>Appointment Tracking</h4>
+    <p>Monitoring and management of active appointments</p>
+    <div className={styles.moduleMeta}>
+      <span className={styles.moduleStatus}>Available</span>
+      <span className={styles.moduleTeam}>Tracking Group</span>
+    </div>
+  </div>
+</button>
+```
+
+## Navigation
+
+### Back to Dashboard Button
+
+```tsx /adminStatistic/page.tsx
+const handleBackToDashboard = () => {
+  router.push(`https://servineo-frontend-bytes-bandidos.vercel.app/user-admin/dashboard`);
+};
+
+<Button
+  onClick={handleBackToDashboard}
+  variant='outline'
+  className='flex items-center gap-2'
+>
+  <svg><!-- Arrow icon --></svg>
+  Back to Dashboard
+</Button>
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Auto-Refresh" icon="rotate">
+    Statistics automatically refetch when the selected period changes
+  </Card>
+  <Card title="Empty States" icon="inbox">
+    Handle cases where no data is available for the selected period
+  </Card>
+  <Card title="Color Coding" icon="palette">
+    Use distinct colors for different chart types (#2563eb, #10b981, #f59e0b)
+  </Card>
+  <Card title="Responsive Design" icon="mobile">
+    Ensure charts are readable on all screen sizes
+  </Card>
+</CardGroup>
+
+<Tip>
+Use the monthly view by default as it provides the best balance between granularity and overview.
+</Tip>
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Admin Overview" icon="home" href="/admin/overview">
+    Learn about admin capabilities and authentication
+  </Card>
+  <Card title="User Management" icon="users" href="/admin/user-management">
+    Manage users and view role distribution
+  </Card>
+</CardGroup>

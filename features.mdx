@@ -1,0 +1,787 @@
+---
+title: 'Platform Features'
+description: 'Comprehensive guide to all features available in Servineo for requesters and fixers'
+---
+
+Servineo offers a comprehensive suite of features designed to streamline the process of requesting and offering home services. This guide covers all major platform capabilities.
+
+## Core Features
+
+### Role-Based Experience
+
+Servineo provides customized experiences based on user roles:
+
+```typescript
+interface IUser {
+  role: 'requester' | 'fixer' | 'admin';
+}
+```
+
+<Info>
+  The platform automatically adjusts the interface, navigation, and available features based on your role.
+</Info>
+
+## For Requesters
+
+### 1. Service Discovery
+
+#### Interactive Map Search
+
+Find fixers near you using the real-time map interface:
+
+- Visual representation of fixer locations
+- Service-specific icons and colors
+- Click markers to view fixer profiles
+- Filter by distance and service type
+
+```typescript
+// Service styling configuration
+interface ServiceStyle {
+  color: string;      // Border and text color
+  iconUrl: string;    // Service icon
+}
+
+const serviceStyles = {
+  plomería: { color: '#00C851', iconUrl: '/Plomeria.webp' },
+  electricidad: { color: '#ffbb33', iconUrl: '/Electricistas.webp' },
+  carpintería: { color: '#33b5e5', iconUrl: '/Carpinteria.webp' },
+  // ... more services
+};
+```
+
+<CardGroup cols={3}>
+  <Card title="Plumbing" icon="pipe">
+    Green markers (#00C851)
+  </Card>
+  <Card title="Electrical" icon="bolt">
+    Yellow markers (#ffbb33)
+  </Card>
+  <Card title="Carpentry" icon="hammer">
+    Blue markers (#33b5e5)
+  </Card>
+  <Card title="Painting" icon="paintbrush">
+    Red markers (#ff4444)
+  </Card>
+  <Card title="Gardening" icon="leaf">
+    Cyan markers (#2BDDE0)
+  </Card>
+  <Card title="Locksmith" icon="key">
+    Purple markers (#aa66cc)
+  </Card>
+</CardGroup>
+
+#### Advanced Search
+
+Powerful filtering capabilities at `/adv-search`:
+
+- **Service Type**: Select from available categories
+- **Location**: Search by address or coordinates
+- **Price Range**: Set minimum and maximum budgets
+- **Date Filters**: Find fixers available on specific dates
+- **Ratings**: Filter by star ratings
+- **Results Counter**: See how many fixers match your criteria
+
+<Note>
+  The advanced search uses checkboxes, dropdown lists, and calendar components for precise filtering.
+</Note>
+
+### 2. Job Request Management
+
+#### Creating Job Requests
+
+Submit detailed service requests with:
+
+```typescript
+interface CreateJobRequestPayload {
+  title: string;                    // Job summary
+  description: string;              // Detailed requirements
+  location: {
+    type: 'Point';
+    coordinates: [string, string];  // [longitude, latitude]
+  };
+  startTime: string;               // ISO datetime
+  endTime: string;                 // ISO datetime
+  price: string | number;          // Budget or quote
+  fixerId: string;                 // Selected professional
+  requesterId: string;             // Your user ID
+  offerId?: string;                // Optional: if responding to offer
+}
+```
+
+#### Job Status Tracking
+
+Monitor your requests through their lifecycle:
+
+<Steps>
+  <Step title="Pending">
+    Request submitted, waiting for fixer acceptance
+  </Step>
+  <Step title="Accepted">
+    Fixer has confirmed availability
+  </Step>
+  <Step title="In Progress">
+    Work is currently being performed
+  </Step>
+  <Step title="Completed">
+    Job finished, ready for review
+  </Step>
+  <Step title="Paid">
+    Payment processed successfully
+  </Step>
+</Steps>
+
+```typescript
+interface JobRequest {
+  status: 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled' | 'paid';
+  _id: string;
+  title: string;
+  description: string;
+  price: number;
+  requesterId: string;
+  fixerId?: string;
+  rating?: number;
+  comment?: string;
+}
+```
+
+### 3. Profile & Location Management
+
+#### User Profile Settings
+
+Manage your account at `/requesterEdit`:
+
+- Personal information
+- Profile photo
+- Contact details
+- Account security
+- Linked authentication providers
+
+```typescript
+interface IUser {
+  name: string;
+  email: string;
+  telefono?: string;
+  url_photo?: string;
+  ubicacion?: {
+    lat?: number;
+    lng?: number;
+    direccion?: string;
+    departamento?: string;
+    pais?: string;
+  };
+}
+```
+
+#### Location Updates
+
+<CodeGroup>
+```typescript API Call
+// Update user location
+const updateLocation = async (userId: string, location: {
+  lat: number;
+  lng: number;
+  direccion?: string;
+}) => {
+  const response = await fetch(`/api/user/${userId}/location`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ workLocation: location })
+  });
+  return response.json();
+};
+```
+
+```typescript Redux Hook
+import { useUpdateLocationMutation } from '@/app/redux/services/userApi';
+
+const [updateLocation] = useUpdateLocationMutation();
+
+await updateLocation({
+  id: userId,
+  location: { lat: 40.7128, lng: -74.0060, direccion: 'New York, NY' }
+});
+```
+</CodeGroup>
+
+### 4. Calendar & Appointments
+
+Track your scheduled services at `/calendar`:
+
+```typescript
+interface Appointment {
+  _id: string;
+  id_fixer: string;
+  id_requester: string;
+  selected_date: { $date: string };
+  appointment_type: string;
+  appointment_description: string;
+  starting_time: { $date: string };
+  finishing_time: { $date: string };
+  schedule_state: string;
+  display_name_location: string;
+  lat: string | null;
+  lon: string | null;
+}
+```
+
+<Info>
+  The calendar uses React Big Calendar for an interactive scheduling experience.
+</Info>
+
+### 5. Ratings & Reviews
+
+Rate completed jobs:
+
+- Star ratings (1-5)
+- Written comments
+- View fixer rating history
+- Help other users make decisions
+
+```typescript
+interface Job {
+  _id: string;
+  title: string;
+  status: string;
+  rating?: number;
+  comment?: string;
+  createdAt: string;
+}
+```
+
+## For Fixers
+
+### 1. Fixer Conversion & Registration
+
+#### Becoming a Fixer
+
+Convert your requester account at `/become-fixer`:
+
+<Steps>
+  <Step title="Basic Information">
+    ```typescript
+    interface InitialRegistrationData {
+      name: string;    // Max 30 characters, letters only
+      email: string;   // Valid email format
+      phone: string;   // Phone with country code
+    }
+    ```
+  </Step>
+  
+  <Step title="Professional Details">
+    Select your services and expertise:
+    - Service categories (multiple selection)
+    - Years of experience
+    - Professional description
+    - Certifications (if any)
+  </Step>
+  
+  <Step title="Work Location">
+    Define your service area:
+    ```typescript
+    workLocation: {
+      lat: number;
+      lng: number;
+      direccion: string;
+      departamento: string;
+      pais: string;
+    }
+    ```
+  </Step>
+  
+  <Step title="Logistics">
+    - Vehicle availability
+    - Equipment owned
+    - Travel radius
+  </Step>
+  
+  <Step title="Payment Methods">
+    ```typescript
+    metodoPago: {
+      hasEfectivo?: boolean;      // Cash
+      qr?: boolean;               // QR payment
+      tarjetaCredito?: boolean;   // Credit card
+    }
+    ```
+  </Step>
+</Steps>
+
+### 2. Job Offer Management
+
+#### Creating Offers
+
+Post your services to attract clients:
+
+```typescript
+interface IJobOffer {
+  title: string;
+  description: string;
+  price: number;
+  fixerId: string;
+  serviceType: string;
+  isActive: boolean;
+  createdAt?: string;
+  images?: string[];
+}
+```
+
+<CodeGroup>
+```typescript Create Offer
+import { useCreateJobMutation } from '@/app/redux/services/jobApi';
+
+const [createJob] = useCreateJobMutation();
+
+const formData = new FormData();
+formData.append('title', 'Electrical Installation');
+formData.append('description', 'Professional wiring and fixtures');
+formData.append('price', '50');
+formData.append('serviceType', 'electricidad');
+
+await createJob(formData);
+```
+
+```typescript Toggle Status
+import { useToggleJobStatusMutation } from '@/app/redux/services/jobApi';
+
+const [toggleStatus] = useToggleJobStatusMutation();
+
+// Activate or deactivate offer
+await toggleStatus({ jobId: 'offer_id' });
+```
+
+```typescript Delete Offer
+import { useDeleteJobMutation } from '@/app/redux/services/jobApi';
+
+const [deleteJob] = useDeleteJobMutation();
+
+await deleteJob({ jobId: 'offer_id', fixerId: 'user_id' });
+```
+</CodeGroup>
+
+#### Managing Offers
+
+Access at `/job-offer-list`:
+
+- View all your active offers
+- Edit offer details
+- Toggle visibility (active/inactive)
+- Track views and requests
+- Delete outdated offers
+
+### 3. Fixer Dashboard
+
+Comprehensive overview at `/fixer/dashboard`:
+
+- **Statistics**: Jobs completed, earnings, ratings
+- **Active Jobs**: Currently in progress
+- **Pending Requests**: Awaiting your response
+- **Calendar View**: Upcoming appointments
+- **Performance Metrics**: Success rate, response time
+
+<CardGroup cols={2}>
+  <Card title="Jobs" icon="briefcase">
+    Track active and completed work
+  </Card>
+  <Card title="Earnings" icon="dollar-sign">
+    Monitor income and payments
+  </Card>
+  <Card title="Ratings" icon="star">
+    View your reputation score
+  </Card>
+  <Card title="Appointments" icon="calendar-days">
+    Manage your schedule
+  </Card>
+</CardGroup>
+
+### 4. Payment System
+
+#### Fixer Wallet
+
+Manage earnings at `/payment/FixerWallet`:
+
+- View current balance
+- Transaction history
+- Withdrawal requests
+- Recharge options (`/payment/FixerWallet/recarga`)
+
+#### Payment Center
+
+Full financial management at `/payment/centro-de-pagos`:
+
+```typescript
+// Payment-related routes
+const paymentRoutes = [
+  '/payment/centro-de-pagos',      // Main payment hub
+  '/payment/FixerWallet',          // Wallet balance
+  '/payment/historial',            // Payment history
+  '/payment/facturas',             // Invoices
+  '/payment/cuenta-bancaria',      // Bank account setup
+  '/payment/qrwallet',             // QR payment options
+];
+```
+
+<Warning>
+  Always verify bank account details before processing withdrawals. Incorrect information may delay payments.
+</Warning>
+
+#### Invoice Management
+
+- Generate invoices automatically
+- View invoice history at `/payment/facturas`
+- Download PDF invoices
+- Track payment status
+
+```typescript
+// Invoice details available at
+// /payment/detalleFactura/[invoiceId]
+```
+
+### 5. Job Management
+
+Track jobs at `/fixers/[id]/jobs`:
+
+```typescript
+async function getJobsByFixerId(fixerId: string): Promise<Job[]> {
+  const response = await fetch(`/api/fixers/${fixerId}/jobs`);
+  return response.json();
+}
+
+interface Job {
+  _id: string;
+  title: string;
+  description: string;
+  status: string;
+  requesterId: string;
+  fixerId: string;
+  price: number;
+  createdAt: string;
+  rating?: number;
+  comment?: string;
+}
+```
+
+## Universal Features
+
+### 1. Authentication
+
+#### Multiple Sign-In Methods
+
+<Tabs>
+  <Tab title="Email/Password">
+    Traditional authentication with secure password storage
+    
+    ```typescript
+    authProviders: [{
+      provider: 'email',
+      providerId: 'user@example.com',
+      password: 'hashed_password'
+    }]
+    ```
+  </Tab>
+  
+  <Tab title="Google OAuth">
+    Sign in with Google account for quick access
+    
+    Uses `@react-oauth/google` for secure integration
+  </Tab>
+  
+  <Tab title="GitHub">
+    Developer-friendly authentication via GitHub
+  </Tab>
+  
+  <Tab title="Discord">
+    Community-focused login option
+  </Tab>
+</Tabs>
+
+#### Account Security
+
+Enhanced security features at `/requesterEdit/Seguridad`:
+
+- **Two-Factor Authentication** (`/requesterEdit/Seguridad/Authenticator`)
+- Password reset flow
+- Account linking (connect multiple providers)
+- Session management
+
+<Info>
+  Enable two-factor authentication for an extra layer of security on your account.
+</Info>
+
+### 2. Search & Discovery
+
+#### Service Categories
+
+Servineo supports 20+ service categories:
+
+```typescript
+const serviceCategories = [
+  'Plomería',           'Electricidad',        'Carpintería',
+  'Pintura',            'Jardinería',          'Cerrajería',
+  'Albañilería',        'Limpieza',            'Gasfitería',
+  'Calefacción',        'Refrigeración',       'Domótica',
+  'Fumigación',         'Impermeabilización',  'Instalación CCTV',
+  'Lavado de alfombras','Mecánica',            'Mudanzas',
+  'Paneles Solares',    'Piscina',             'Soldadura',
+  'Tapicería',          'Techos y Cubiertas',  'Vidriería'
+];
+```
+
+#### Search Functionality
+
+Multiple search interfaces:
+
+1. **Quick Search**: Homepage search bar
+2. **Advanced Search**: `/adv-search` with filters
+3. **Map Search**: Visual location-based discovery
+4. **Service Browse**: Category-based exploration at `/servicios`
+
+### 3. Communication
+
+#### Contact Methods
+
+- **In-App Messaging**: Direct communication through the platform
+- **WhatsApp Integration**: Quick contact button
+- **Phone Contact**: Direct calling for urgent matters
+- **Contact Modal**: Structured contact forms
+
+```typescript
+// Contact components available
+import ContactCard from '@/Components/Contact/Contact-card';
+import ContactModal from '@/Components/Contact/Contact-modal';
+import QuickContact from '@/Components/Contact/Quick-contact';
+import WhatsAppButton from '@/Components/Contact/Whasapp-button';
+```
+
+### 4. Multilingual Support
+
+Platform available in multiple languages:
+
+```typescript
+import { useTranslations } from 'next-intl';
+
+const t = useTranslations('home');
+// Access localized content
+```
+
+- English (`/en`)
+- Spanish (`/es`)
+- Automatic locale detection
+- Route-based language switching (`/[locale]/...`)
+
+<Note>
+  The locale is embedded in the URL path for SEO and user preference persistence.
+</Note>
+
+### 5. Help & Support
+
+#### Help Center
+
+Comprehensive support resources available in the application:
+
+- Getting started guides
+- Troubleshooting documentation
+- Contact support options
+- Step-by-step tutorials
+
+#### FAQ
+
+Frequently asked questions section provides quick answers to common user queries about platform features, payments, and account management.
+
+#### User Forum
+
+Community support features include:
+
+- Ask questions to the community
+- Share experiences and tips
+- Help other users with their questions
+- Thread-based discussions for ongoing topics
+
+### 6. Statistics & Analytics
+
+#### Admin Dashboard
+
+Platform statistics at `/adminStatistic` (admin only):
+
+- User registration trends
+- Job completion rates
+- Revenue analytics
+- Service popularity
+
+#### User Analytics
+
+Personal statistics for fixers:
+
+- Jobs completed
+- Average rating
+- Response time
+- Earnings over time
+
+## Technical Features
+
+### State Management
+
+Redux Toolkit for centralized state:
+
+```typescript
+import { useSelector } from 'react-redux';
+import { RootState } from '@/app/redux/store';
+
+const { user, loading, isAuthenticated } = useSelector(
+  (state: RootState) => state.user
+);
+```
+
+### API Integration
+
+RTK Query for efficient data fetching:
+
+<CodeGroup>
+```typescript User API
+import { 
+  useGetUserByIdQuery,
+  useUpdateLocationMutation,
+  useConvertToFixerMutation 
+} from '@/app/redux/services/userApi';
+```
+
+```typescript Job API
+import {
+  useGetAllJobsQuery,
+  useCreateJobMutation,
+  useUpdateJobMutation,
+  useDeleteJobMutation
+} from '@/app/redux/services/jobApi';
+```
+
+```typescript Fixer API
+import { useGetFixerByIdQuery } from '@/app/redux/services/fixerApi';
+```
+</CodeGroup>
+
+### Real-time Updates
+
+- Automatic cache invalidation
+- Optimistic updates
+- Background refetching
+- WebSocket support (where applicable)
+
+### Responsive Design
+
+Tailwind CSS for mobile-first design:
+
+- Breakpoint-based layouts
+- Touch-optimized interfaces
+- Adaptive navigation
+- Mobile-friendly forms
+
+<Tip>
+  The platform works seamlessly across desktop, tablet, and mobile devices.
+</Tip>
+
+## Advanced Features
+
+### 1. Guided Tours
+
+Interactive onboarding:
+
+```typescript
+import { TourProvider } from '@reactour/tour';
+
+// Tour starts at #tour-start-point
+// Guides through key features
+```
+
+### 2. Notifications
+
+Multiple notification types:
+
+- Success messages
+- Error alerts
+- Warnings
+- Info notifications
+- Auto-dismissing toasts
+
+```typescript
+import { toast } from 'sonner';
+
+toast.success('Job request submitted!');
+toast.error('Failed to load data');
+```
+
+### 3. Form Validation
+
+Zod schemas for type-safe validation:
+
+```typescript
+import { z } from 'zod';
+
+const jobRequestSchema = z.object({
+  title: z.string().min(5).max(100),
+  description: z.string().min(20),
+  price: z.number().positive(),
+  startTime: z.string().datetime(),
+});
+```
+
+### 4. File Uploads
+
+- Profile photos
+- Job offer images
+- Certification documents
+- Portfolio images
+
+### 5. Geolocation
+
+Leaflet-based mapping:
+
+```typescript
+import { MapContainer, Marker, Popup } from 'react-leaflet';
+
+// Interactive maps with custom markers
+// Service-specific icon styling
+// Click-to-view fixer profiles
+```
+
+## Integration Features
+
+### Payment Gateways
+
+- Stripe integration (`@stripe/react-stripe-js`)
+- QR code payments (`qrcode.react`)
+- Bank transfers
+- Cash on completion
+
+### Analytics
+
+- User activity tracking
+- Performance monitoring
+- Error reporting
+- Usage statistics
+
+### Security
+
+- ReCAPTCHA protection
+- JWT authentication
+- HTTPS enforcement
+- Input sanitization
+- SQL injection prevention
+
+<Warning>
+  Never share your authentication tokens or passwords. Servineo staff will never ask for these credentials.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get started with your first service request
+  </Card>
+  <Card title="API Reference" icon="code" href="/developer/api/overview">
+    Explore the API documentation
+  </Card>
+  <Card title="For Requesters" icon="user" href="/requesters/overview">
+    Complete guide for service requesters
+  </Card>
+  <Card title="For Fixers" icon="wrench" href="/fixers/overview">
+    Complete guide for service providers
+  </Card>
+</CardGroup>

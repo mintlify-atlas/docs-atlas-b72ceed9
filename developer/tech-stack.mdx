@@ -1,0 +1,413 @@
+---
+title: 'Technology Stack'
+description: 'Complete overview of frameworks, libraries, and tools used in Servineo Frontend'
+icon: 'layer-group'
+---
+
+## Core Framework
+
+### Next.js 15.5.4
+
+Servineo uses the latest Next.js 15 with the **App Router** architecture (not Pages Router).
+
+```json package.json
+{
+  "dependencies": {
+    "next": "15.5.4",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  }
+}
+```
+
+**Key Features Utilized:**
+
+- **Turbopack**: Fast bundler for development and production builds
+- **App Router**: File-system based routing with `src/app/` directory
+- **Server Components**: React Server Components by default
+- **API Rewrites**: Proxy configuration for backend API calls
+- **Image Optimization**: Next.js Image component with remote patterns
+
+<Info>
+  Turbopack is enabled in both dev and build scripts (`--turbopack` flag), providing significantly faster compilation than webpack.
+</Info>
+
+### React 19.1.0
+
+Latest React version with improved performance and new features:
+
+- Server Components support
+- Enhanced concurrent rendering
+- Automatic batching improvements
+- New hooks and APIs
+
+<Warning>
+  React 19 is a major version with breaking changes. Ensure all dependencies are compatible with React 19 before upgrading further.
+</Warning>
+
+### TypeScript 5.9.3
+
+Strict TypeScript configuration for type safety:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "strict": true,
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "moduleResolution": "bundler",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
+}
+```
+
+**Configuration Highlights:**
+
+- **Strict mode** enabled for maximum type safety
+- **Path aliases**: `@/*` maps to `src/*`
+- **Incremental compilation** for faster builds
+- **Next.js TypeScript plugin** for enhanced IDE support
+
+## State Management
+
+### Redux Toolkit 2.10.1
+
+Modern Redux with simplified APIs and best practices built-in.
+
+```typescript src/app/redux/store.ts
+import { configureStore } from '@reduxjs/toolkit';
+import { baseApi } from './services/baseApi';
+import userReducer from './slice/userSlice';
+import fixerReducer from './slice/fixerSlice';
+import filterReducer from './slice/filterSlice';
+
+export const store = configureStore({
+  reducer: {
+    [baseApi.reducerPath]: baseApi.reducer,
+    user: userReducer,
+    fixer: fixerReducer,
+    filters: filterReducer,
+    jobOffers: jobOffersReducer,
+    jobOfert: jobOfertReducer,
+    fixersByJob: fixersByJobReducer,
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().concat(baseApi.middleware).concat(logger),
+  devTools: process.env.NODE_ENV !== 'production',
+});
+```
+
+**Active Slices:**
+
+- `user` - User authentication and profile (37 lines)
+- `fixer` - Service provider data (37 lines)
+- `filters` - Search and filter state (125 lines)
+- `jobOffers` - Job listings (40 lines)
+- `jobOfert` - Individual job details (295 lines)
+- `fixersByJob` - Fixer associations (43 lines)
+
+### RTK Query
+
+Data fetching and caching layer built on Redux Toolkit:
+
+```typescript src/app/redux/services/baseApi.ts
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+
+export const baseApi = createApi({
+  reducerPath: 'api',
+  baseQuery: fetchBaseQuery({
+    baseUrl: process.env.NEXT_PUBLIC_API_URL + '/api',
+    credentials: 'include',
+  }),
+  tagTypes: [
+    'User', 'Job', 'Statistics', 'JobOffer', 
+    'Requester', 'SearchHistory', 'Experience', 
+    'Portfolio', 'Certification'
+  ],
+  endpoints: () => ({}),
+});
+```
+
+**API Services** (extended from baseApi):
+
+- `loginApi` - Authentication
+- `userApi` - User management
+- `jobApi` / `jobOfferApi` / `jobOffersApi` - Job operations
+- `fixerApi` - Service provider endpoints
+- `searchApi` / `searchHistoryApi` - Search functionality
+- `dashboardApi` - Analytics and statistics
+- `experiencesApi` / `portafolioApi` / `certifications` - Profile data
+
+### Redux Logger
+
+Development-time debugging for Redux actions:
+
+```typescript
+import logger from 'redux-logger';
+
+middleware: (getDefaultMiddleware) =>
+  getDefaultMiddleware()
+    .concat(baseApi.middleware)
+    .concat(logger)
+```
+
+<Tip>
+  Redux DevTools are enabled in development mode. Install the Redux DevTools browser extension for advanced debugging.
+</Tip>
+
+## Styling & UI
+
+### Tailwind CSS 4.1.17
+
+Utility-first CSS framework with PostCSS:
+
+```javascript tailwind.config.js
+module.exports = {
+  content: ['./src/**/*.{js,ts,jsx,tsx}'],
+  theme: {
+    extend: {
+      colors: {},
+    },
+  },
+  plugins: [],
+};
+```
+
+### UI Component Libraries
+
+<CodeGroup>
+
+```json Material UI
+"@mui/material": "^7.3.4",
+"@mui/x-date-pickers": "^8.14.0",
+"@emotion/react": "^11.14.0",
+"@emotion/styled": "^11.14.1"
+```
+
+```json Radix UI
+"@radix-ui/react-dropdown-menu": "^2.1.16",
+"@radix-ui/react-label": "^2.1.8",
+"@radix-ui/react-popover": "^1.1.15",
+"@radix-ui/react-slot": "^1.2.4"
+```
+
+```json Headless UI
+"@headlessui/react": "^2.2.9"
+```
+
+</CodeGroup>
+
+**Styling Utilities:**
+
+- `clsx` (2.1.1) - Conditional classNames
+- `tailwind-merge` (3.4.0) - Merge Tailwind classes without conflicts
+- `class-variance-authority` (0.7.1) - Component variant management
+- `animate.css` (4.1.1) - CSS animations
+- `framer-motion` (12.23.24) - Advanced animations and gestures
+
+## Internationalization
+
+### next-intl 4.5.5
+
+Type-safe internationalization for Next.js App Router:
+
+```typescript src/i18n/routing.ts
+import { defineRouting } from 'next-intl/routing';
+
+export const routing = defineRouting({
+  locales: ['en', 'es'],
+  defaultLocale: 'en',
+});
+```
+
+**Configuration:**
+
+- Locale detection enabled
+- Cookie-based locale persistence
+- Server and client component support
+- Message files: `messages/en.json`, `messages/es.json`
+
+```typescript next.config.ts
+import createNextIntlPlugin from 'next-intl/plugin';
+
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
+
+export default withNextIntl(nextConfig);
+```
+
+### i18next 25.7.1
+
+Additional i18n utilities and ecosystem support.
+
+## Forms & Validation
+
+### React Hook Form
+
+```json
+"@hookform/resolvers": "^5.2.2"
+```
+
+Performant form management with minimal re-renders.
+
+### Zod 4.1.12
+
+TypeScript-first schema validation:
+
+```typescript
+import { z } from 'zod';
+
+const schema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+});
+```
+
+Integrates with React Hook Form via `@hookform/resolvers`.
+
+## Authentication & Payments
+
+### Google OAuth
+
+```json
+"@react-oauth/google": "^0.12.2"
+```
+
+Google Sign-In integration for user authentication.
+
+### Stripe
+
+```json
+"@stripe/react-stripe-js": "^5.4.1",
+"@stripe/stripe-js": "^8.5.3"
+```
+
+Secure payment processing for transactions.
+
+### JWT Decode
+
+```json
+"jwt-decode": "^4.0.0"
+```
+
+Decode JWT tokens for authentication state.
+
+## Maps & Geolocation
+
+### Leaflet 1.9.4
+
+```json
+"leaflet": "^1.9.4",
+"react-leaflet": "^5.0.0",
+"leaflet-defaulticon-compatibility": "^0.1.2"
+```
+
+Interactive maps for service area visualization.
+
+<Note>
+  Leaflet CSS is imported globally in `src/app/[locale]/layout.tsx`:
+  ```typescript
+  import 'leaflet/dist/leaflet.css';
+  ```
+</Note>
+
+## Calendar & Scheduling
+
+### React Big Calendar 1.19.4
+
+```json
+"react-big-calendar": "^1.19.4",
+"date-fns": "^4.1.0"
+```
+
+Full-featured calendar component for appointment management.
+
+**Integration Points:**
+
+- `src/Components/calendar/` - Calendar UI components
+- `src/hooks/Appointments/` - Appointment data hooks
+- `src/utils/Appointments/` - Calendar utilities
+
+## Additional Libraries
+
+### UI Enhancements
+
+- **lucide-react** (0.546.0) - Icon library
+- **react-icons** (5.5.0) - Additional icon sets
+- **sonner** (2.0.7) - Toast notifications
+- **nextjs-toast-notify** (1.57.0) - Toast alternative
+- **@reactour/tour** (3.8.0) - Product tours and walkthroughs
+
+### Data Visualization
+
+- **recharts** (3.4.1) - Chart library for analytics
+
+### Document Generation
+
+- **jspdf** (3.0.4) - PDF generation
+- **qrcode** (1.5.4) / **qrcode.react** (4.2.0) - QR code generation
+
+### Media
+
+- **react-player** (3.4.0) - Video/audio player component
+
+### Utilities
+
+- **axios** (1.13.2) - HTTP client (alongside fetch)
+- **ua-parser-js** (2.0.6) - User agent parsing
+- **react-google-recaptcha** (3.1.0) - CAPTCHA protection
+
+## Development Tools
+
+### Code Quality
+
+```json devDependencies
+"eslint": "^9",
+"eslint-config-next": "15.5.4",
+"eslint-config-prettier": "^10.1.8",
+"eslint-plugin-prettier": "^5.5.4",
+"prettier": "^3.6.2"
+```
+
+### Type Definitions
+
+```json
+"@types/node": "^20",
+"@types/react": "^19.2.2",
+"@types/react-dom": "^19.2.2",
+"@types/leaflet": "^1.9.21",
+"@types/jspdf": "^1.3.3"
+```
+
+## Backend Integration
+
+While this is a frontend application, it integrates with:
+
+- **Express** (5.1.0) - Likely for custom server middleware
+- **Mongoose** (9.0.0) - MongoDB ODM (for API backend)
+- **dotenv** (17.2.3) - Environment variable management
+
+<Warning>
+  The presence of backend dependencies (Express, Mongoose) suggests this may be a full-stack monorepo. Ensure proper separation of concerns between frontend and backend code.
+</Warning>
+
+## Summary
+
+Servineo Frontend leverages modern React and Next.js capabilities with a comprehensive stack:
+
+- ✅ Latest Next.js 15 with Turbopack
+- ✅ React 19 with Server Components
+- ✅ Redux Toolkit + RTK Query for state and data
+- ✅ Tailwind CSS + multiple UI libraries
+- ✅ Full internationalization (en/es)
+- ✅ TypeScript for type safety
+- ✅ Stripe payments + Google OAuth
+- ✅ Maps, calendars, charts, and more
+
+<Tip>
+  To see all dependencies with versions, run:
+  ```bash
+  npm list --depth=0
+  ```
+</Tip>

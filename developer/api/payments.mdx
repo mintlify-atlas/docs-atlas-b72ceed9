@@ -1,0 +1,348 @@
+---
+title: 'Payments API'
+description: 'Payment methods, transactions, and billing'
+---
+
+## Overview
+
+Servineo supports multiple payment methods for service transactions. Payment configuration is stored in user profiles and job requests.
+
+<Note>
+The payments infrastructure is currently integrated at the profile level. Dedicated payment processing endpoints are under development.
+</Note>
+
+## Payment Methods
+
+### Supported Methods
+
+Servineo supports the following payment methods:
+
+<ParamField path="cash" type="payment method">
+  Cash payment (efectivo)
+</ParamField>
+
+<ParamField path="qr" type="payment method">
+  QR code payment (MercadoPago, etc.)
+</ParamField>
+
+<ParamField path="credit_card" type="payment method">
+  Credit card payment (tarjeta de crédito)
+</ParamField>
+
+## User Payment Configuration
+
+### IUser Payment Methods
+
+Users can configure their payment preferences in their profile:
+
+```typescript ~/workspace/source/src/types/user.ts
+interface IUser {
+  // ... other fields
+  metodoPago?: {
+    hasEfectivo?: boolean;
+    qr?: boolean;
+    tarjetaCredito?: boolean;
+  };
+}
+```
+
+**Example:**
+
+```typescript
+const user: IUser = {
+  name: 'John Doe',
+  email: 'john@example.com',
+  role: 'fixer',
+  metodoPago: {
+    hasEfectivo: true,
+    qr: true,
+    tarjetaCredito: false
+  }
+};
+```
+
+### IUserProfile Payment Methods
+
+The new user profile structure uses a more flexible payment method array:
+
+```typescript ~/workspace/source/src/types/job-offer.ts
+interface IUserProfile {
+  // ... other fields
+  profile: {
+    paymentMethods: Array<{
+      type: string;
+      accountInfo?: string;
+    }>;
+    // ... other profile fields
+  };
+}
+```
+
+**Example:**
+
+```typescript
+const profile: IUserProfile = {
+  user: { /* ... */ },
+  profile: {
+    // ... other fields
+    paymentMethods: [
+      { type: 'cash' },
+      { type: 'qr', accountInfo: 'mercadopago:+598991234567' },
+      { type: 'credit_card', accountInfo: 'stripe:acct_xxxxx' }
+    ],
+    terms: { accepted: true },
+    status: 'approved'
+  }
+};
+```
+
+## Job Request Pricing
+
+### Price Field
+
+Job requests include pricing information:
+
+```typescript ~/workspace/source/src/types/job-request.ts
+interface JobRequest {
+  // ... other fields
+  price: number;
+  status: 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled' | 'paid';
+}
+```
+
+### Payment Status Flow
+
+<Steps>
+  <Step title="pending">
+    Job request created, price proposed
+  </Step>
+  <Step title="accepted">
+    Fixer accepts the job and price
+  </Step>
+  <Step title="in_progress">
+    Work is being performed
+  </Step>
+  <Step title="completed">
+    Work completed, payment due
+  </Step>
+  <Step title="paid">
+    Payment has been processed and confirmed
+  </Step>
+</Steps>
+
+## Job Offer Pricing
+
+### Price Display
+
+Job offers include pricing information visible to requesters:
+
+```typescript ~/workspace/source/src/types/fixer-profile.ts
+interface IJobOffer {
+  // ... other fields
+  price: number;
+  contactPhone: string;
+}
+```
+
+**Example:**
+
+```typescript
+const jobOffer: IJobOffer = {
+  _id: '507f1f77bcf86cd799439011',
+  fixerId: '507f1f77bcf86cd799439012',
+  fixerName: 'John Doe',
+  title: 'Plumbing Services',
+  description: 'Professional plumbing repair and installation',
+  category: 'plumbing',
+  price: 1500, // Price in local currency
+  city: 'Montevideo',
+  contactPhone: '+598 99 123 456',
+  photos: []
+};
+```
+
+## Creating a Job with Payment
+
+### Complete Flow
+
+<CodeGroup>
+```typescript Job Request with Price
+import { createJobRequest } from '@/services/job-requests';
+
+const payload: CreateJobRequestPayload = {
+  title: 'Fix leaking faucet',
+  description: 'Kitchen faucet needs repair',
+  location: {
+    type: 'Point',
+    coordinates: ['-56.1645', '-34.9011']
+  },
+  startTime: '2024-01-20T10:00:00Z',
+  endTime: '2024-01-20T12:00:00Z',
+  price: 1500, // Agreed price
+  fixerId: '507f1f77bcf86cd799439012',
+  requesterId: '507f1f77bcf86cd799439013'
+};
+
+const jobRequest = await createJobRequest(payload, token);
+
+// After completion, update status to 'paid'
+// (Payment processing endpoint to be implemented)
+```
+
+```typescript Job Offer with Price
+import { useCreateJobMutation } from '@/app/redux/services/jobApi';
+
+const [createJob] = useCreateJobMutation();
+
+const formData = new FormData();
+formData.append('fixerId', userId);
+formData.append('fixerName', 'John Doe');
+formData.append('title', 'Plumbing Services');
+formData.append('description', 'Professional plumbing...');
+formData.append('category', 'plumbing');
+formData.append('price', '1500'); // Listed price
+formData.append('city', 'Montevideo');
+formData.append('contactPhone', '+598 99 123 456');
+
+await createJob(formData);
+```
+</CodeGroup>
+
+## Payment Method Configuration
+
+### Update User Payment Methods
+
+Update payment methods via user profile:
+
+```typescript
+import { useCreateUserProfileMutation } from '@/app/redux/services/userApi';
+
+const [updateProfile] = useCreateUserProfileMutation();
+
+// Update payment methods
+await updateProfile({
+  user: { /* ... */ },
+  profile: {
+    // ... other fields
+    paymentMethods: [
+      { type: 'cash' },
+      { type: 'qr', accountInfo: 'mercadopago:account@example.com' }
+    ]
+  }
+});
+```
+
+### Display Payment Options
+
+Show available payment methods to users:
+
+```typescript
+import { useGetUserByIdQuery } from '@/app/redux/services/userApi';
+
+const { data: fixer } = useGetUserByIdQuery(fixerId);
+
+if (fixer?.metodoPago) {
+  const acceptedMethods = [];
+  
+  if (fixer.metodoPago.hasEfectivo) {
+    acceptedMethods.push('Cash');
+  }
+  if (fixer.metodoPago.qr) {
+    acceptedMethods.push('QR Payment');
+  }
+  if (fixer.metodoPago.tarjetaCredito) {
+    acceptedMethods.push('Credit Card');
+  }
+  
+  console.log(`Accepted payment methods: ${acceptedMethods.join(', ')}`);
+}
+```
+
+## TypeScript Interfaces
+
+### Payment Method Types
+
+```typescript
+// Legacy user payment methods
+interface MetodoPago {
+  hasEfectivo?: boolean;
+  qr?: boolean;
+  tarjetaCredito?: boolean;
+}
+
+// New profile payment methods
+interface PaymentMethod {
+  type: string; // 'cash', 'qr', 'credit_card', etc.
+  accountInfo?: string; // Optional account details
+}
+
+interface UserProfile {
+  paymentMethods: PaymentMethod[];
+}
+```
+
+### Job Pricing Types
+
+```typescript
+// Job request with price
+interface JobRequest {
+  price: number;
+  status: 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled' | 'paid';
+}
+
+// Job offer with price
+interface IJobOffer {
+  price: number;
+  // ... other fields
+}
+```
+
+## Currency
+
+All prices in the Servineo API are represented as numbers in the local currency (Uruguayan Pesos by default).
+
+**Example conversions:**
+
+```typescript
+// Format for display
+const formatPrice = (price: number): string => {
+  return new Intl.NumberFormat('es-UY', {
+    style: 'currency',
+    currency: 'UYU'
+  }).format(price);
+};
+
+console.log(formatPrice(1500)); // "$ 1.500"
+```
+
+## Best Practices
+
+<Note>
+**Payment Security:**
+- Never store sensitive payment information (card numbers, etc.) in user profiles
+- Use `accountInfo` field for non-sensitive identifiers only (e.g., MercadoPago username)
+- Implement proper authorization checks before processing payments
+- Log all payment status changes for audit trails
+</Note>
+
+<Warning>
+**Price Validation:**
+- Always validate price values on the backend
+- Ensure prices are positive numbers
+- Implement minimum/maximum price constraints
+- Prevent price manipulation during job acceptance
+</Warning>
+
+## Future Payment Endpoints
+
+The following payment endpoints are planned for future releases:
+
+- `POST /api/payments/process` - Process a payment transaction
+- `GET /api/payments/history/{userId}` - Get payment history
+- `POST /api/payments/refund` - Process refunds
+- `GET /api/payments/methods` - List available payment gateways
+- `POST /api/payments/webhook` - Payment gateway webhooks
+
+<Info>
+For the latest payment API updates, check the [API changelog](/developer/api/overview) or contact the development team.
+</Info>

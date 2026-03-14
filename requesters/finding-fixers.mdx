@@ -1,0 +1,281 @@
+---
+title: 'Finding Fixers'
+description: 'How to search and discover service providers on Servineo'
+---
+
+## Overview
+
+The job offer listing page (`/job-offer-list`) provides a comprehensive search and discovery experience for finding fixers. The system includes advanced filtering, sorting, and multiple view modes.
+
+## Search Interface
+
+### Text Search
+
+The search bar allows you to find fixers by:
+
+- **Service keywords**: "plumber", "electrician", "cleaning"
+- **Fixer names**: Search by provider name
+- **Job descriptions**: Match against offer descriptions
+
+```typescript
+// Search is handled through Redux state
+const handleSearchSubmit = (query: string) => {
+  dispatch(setSearch(query.trim()));
+  dispatch(resetPagination());
+};
+```
+
+<Note>
+All searches are logged for analytics, including the search query, applied filters, and number of results found.
+</Note>
+
+### Filters
+
+The platform provides multiple filter options accessible through the filter drawer:
+
+#### Location Filters
+
+- **City Selection**: Filter by specific cities
+- **Multiple Cities**: Select multiple locations simultaneously
+
+#### Category Filters
+
+- **Job Types**: Filter by service category
+- **Multiple Categories**: Combine multiple categories in one search
+
+#### Fixer Name Filters
+
+- **Alphabetical Ranges**: Filter fixers by name ranges (A-C, D-F, etc.)
+- **Multiple Ranges**: Select multiple name ranges
+
+#### Rating Filters
+
+- **Star Ratings**: Filter by minimum rating (1-5 stars)
+- **Quality Guarantee**: Find highly-rated service providers
+
+<Info>
+Filter selections are preserved in the URL and browser storage, allowing you to bookmark or share filtered search results.
+</Info>
+
+## View Modes
+
+You can switch between different view modes based on your preference:
+
+### List View
+
+Detailed list format showing:
+- Fixer name and photo
+- Service title and description
+- Price and ratings
+- Contact information
+- Service tags
+
+### Grid View
+
+Compact card layout displaying:
+- Service thumbnails
+- Key information
+- Quick action buttons
+
+### Map View
+
+Geographic visualization showing:
+- Fixer locations on an interactive map
+- Clustered markers for dense areas
+- Click markers to view offer details
+
+<Tip>
+Use the map view to find fixers near your location or in specific neighborhoods.
+</Tip>
+
+## Sorting Options
+
+Results can be sorted by:
+
+- **Relevance**: Best match to your search query
+- **Price**: Low to high or high to low
+- **Rating**: Highest rated first
+- **Date**: Most recent offers first
+
+```typescript
+const SORT_OPTIONS = [
+  { label: 'Relevance', value: 'relevance' },
+  { label: 'Price: Low to High', value: 'price_asc' },
+  { label: 'Price: High to Low', value: 'price_desc' },
+  { label: 'Rating', value: 'rating_desc' },
+  { label: 'Newest', value: 'date_desc' }
+];
+```
+
+## Pagination
+
+### Items Per Page
+
+Choose how many results to display:
+- 10 items per page
+- 20 items per page
+- 50 items per page
+
+### Page Navigation
+
+- **First/Last**: Jump to first or last page
+- **Previous/Next**: Navigate sequentially
+- **Direct Page**: Click specific page numbers
+
+<Note>
+The current page is preserved in the URL, so you can navigate back to specific results using your browser history.
+</Note>
+
+## Job Offer Cards
+
+Each job offer card displays:
+
+### Basic Information
+
+- **Fixer Name**: Service provider's name
+- **Title**: Service offer title
+- **Description**: Detailed description of the service
+- **Price**: Service cost in bolivianos (Bs.)
+
+### Additional Details
+
+- **City**: Location where service is available
+- **Category**: Service category/type
+- **Tags**: Related service tags
+- **Created Date**: When the offer was posted
+
+### Photos
+
+- **Service Images**: Photos of previous work or service examples
+- **Gallery**: Multiple images if available
+
+### Contact
+
+- **Phone Number**: Direct contact information
+- **Request Button**: Create a job request for this offer
+
+## Viewing Offer Details
+
+Click on any job offer card to open the detail modal:
+
+```typescript
+interface AdaptedJobOffer {
+  _id: string;
+  fixerId: string;
+  name: string;
+  title: string;
+  description: string;
+  tags: string[];
+  phone: string;
+  photos: string[];
+  services: string[];
+  price: number;
+  createdAt: Date;
+  city: string;
+}
+```
+
+<Steps>
+  <Step title="Click Offer Card">
+    Click on any job offer to view full details
+  </Step>
+  <Step title="Review Information">
+    Check the service description, photos, and fixer profile
+  </Step>
+  <Step title="Contact or Request">
+    Either call directly or create a formal job request
+  </Step>
+</Steps>
+
+## Search Analytics
+
+The platform tracks search behavior to improve results:
+
+### Logged Data
+
+- **Search Queries**: What users search for
+- **Filter Usage**: Which filters are applied
+- **Result Counts**: Number of results for each search
+- **Click Tracking**: Which offers users click on
+
+```typescript
+const searchData = {
+  user_type: 'requester',
+  search_query: query,
+  search_type: 'search_box',
+  filters: {
+    filter_1: {
+      fixer_name: 'A-C, D-F',
+      city: 'La Paz, Santa Cruz',
+      job_type: 'Plomería, Electricidad',
+      search_count: 25
+    }
+  }
+};
+```
+
+<Warning>
+Search analytics are anonymized and used only to improve the platform. Personal information is never shared with third parties.
+</Warning>
+
+## Advanced Features
+
+### URL-Based State
+
+All search parameters are reflected in the URL:
+
+```
+/job-offer-list?search=plumber&city=La+Paz&page=2&sort=rating_desc
+```
+
+This allows you to:
+- **Bookmark searches**: Save specific searches for later
+- **Share results**: Send links to specific search results
+- **Navigate back**: Use browser back button to return to searches
+
+### State Persistence
+
+Search state is preserved using:
+
+- **URL Parameters**: For shareable state
+- **Local Storage**: For user preferences
+- **Session Storage**: For scroll position restoration
+
+### Responsive Design
+
+The search interface adapts to different screen sizes:
+
+- **Mobile**: Stacked filters, mobile-optimized cards
+- **Tablet**: Two-column grid, drawer navigation
+- **Desktop**: Full filters sidebar, multi-column grid
+
+<Tip>
+On mobile, use the filter button to access the filter drawer. On desktop, filters are always visible in the sidebar.
+</Tip>
+
+## Best Practices
+
+### Effective Searching
+
+1. **Start Broad**: Begin with general category searches
+2. **Refine**: Add filters to narrow results
+3. **Check Ratings**: Prioritize highly-rated fixers
+4. **Review Profiles**: Read descriptions and check photos
+5. **Compare Prices**: View multiple offers before deciding
+
+### Filter Combinations
+
+- **Location + Category**: Find specific services in your area
+- **Rating + Price**: Balance quality and cost
+- **Name Range + City**: Find known providers in specific locations
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Job Requests" icon="briefcase" href="/requesters/job-requests">
+    Learn how to create a job request from an offer
+  </Card>
+  <Card title="Appointments" icon="calendar" href="/requesters/appointments">
+    Schedule appointments with selected fixers
+  </Card>
+</CardGroup>

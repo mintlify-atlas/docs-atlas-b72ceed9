@@ -1,0 +1,182 @@
+---
+title: Fixer Overview
+description: Comprehensive guide to becoming and working as a fixer on Servineo
+---
+
+# Fixer Overview
+
+As a **Fixer** on Servineo, you are a verified service provider who offers professional services to customers in your area. This guide will help you understand the fixer role, capabilities, and how to maximize your earnings on the platform.
+
+## What is a Fixer?
+
+A Fixer is a professional service provider who:
+
+- Offers specialized services (plumbing, electrical work, carpentry, painting, etc.)
+- Has completed the registration and verification process
+- Can create and manage job offers
+- Receives payments through the Servineo platform
+- Maintains a professional profile with ratings and reviews
+
+<Info>
+Fixers must complete a 7-step onboarding wizard before they can start receiving job requests.
+</Info>
+
+## Key Capabilities
+
+<CardGroup cols={2}>
+  <Card title="Job Management" icon="briefcase">
+    Create, edit, and manage your service offerings with photos, pricing, and descriptions
+  </Card>
+  
+  <Card title="Dashboard" icon="chart-line">
+    Track your performance, statistics, and manage all aspects of your fixer profile
+  </Card>
+  
+  <Card title="Digital Wallet" icon="wallet">
+    Receive payments, track earnings, and manage your financial information
+  </Card>
+  
+  <Card title="Profile Management" icon="user">
+    Showcase your experience, certifications, and portfolio to attract clients
+  </Card>
+</CardGroup>
+
+## Fixer Profile Structure
+
+Your fixer profile includes several key components:
+
+### Essential Information
+
+```typescript
+interface FixerProfile {
+  // Identity
+  ci: string;                    // National ID number
+  url_photo: string;             // Profile photo URL
+  
+  // Location
+  workLocation: {
+    lat: number;
+    lng: number;
+    direccion?: string;
+    departamento?: string;
+  };
+  
+  // Services
+  servicios: string[];           // Array of service IDs
+  
+  // Payment Methods
+  metodoPago: {
+    hasEfectivo: boolean;        // Accepts cash
+    qr: boolean;                 // Accepts QR payments
+    tarjetaCredito: boolean;     // Accepts credit cards
+  };
+  
+  // Vehicle
+  vehiculo: {
+    hasVehiculo: boolean;
+    tipoVehiculo?: 'motorcycle' | 'car' | 'van' | 'truck';
+  };
+  
+  // Additional
+  experience?: {
+    descripcion: string;
+  };
+  accountInfo?: string;          // For digital payments
+}
+```
+
+### Profile Status
+
+Fixers have different profile statuses:
+
+- **pending**: Initial registration submitted, awaiting verification
+- **completed**: Profile verified and active
+- **incomplete**: Registration started but not finished
+
+<Warning>
+Only fixers with a "completed" status can receive job requests and payments.
+</Warning>
+
+## Dashboard Sections
+
+Your fixer dashboard is organized into several tabs:
+
+<Steps>
+  <Step title="Job Offers">
+    View and manage all your service offerings, create new job offers, and track their status
+  </Step>
+  
+  <Step title="Certifications">
+    Upload and display professional certifications to build trust with clients
+  </Step>
+  
+  <Step title="Experience">
+    Showcase your work history and professional background
+  </Step>
+  
+  <Step title="Portfolio">
+    Display photos of your completed projects to attract more clients
+  </Step>
+  
+  <Step title="Location">
+    Manage your service area and update your work location
+  </Step>
+  
+  <Step title="Statistics">
+    View performance metrics including completed, in-progress, and pending jobs
+  </Step>
+</Steps>
+
+## Job Statistics
+
+Track your performance with real-time statistics:
+
+- **Completed Jobs**: Successfully finished work
+- **In Progress**: Currently active projects
+- **Pending Jobs**: Jobs awaiting confirmation or start
+- **Total Jobs**: Overall job count
+
+Statistics are visualized in a pie chart showing the distribution of your work across different states.
+
+## Payment Methods
+
+Fixers can accept multiple payment methods:
+
+<CardGroup cols={3}>
+  <Card title="Cash" icon="money-bill">
+    Direct cash payments from clients
+  </Card>
+  
+  <Card title="QR Payments" icon="qrcode">
+    Digital QR code-based transactions
+  </Card>
+  
+  <Card title="Credit Card" icon="credit-card">
+    Card payments through the platform
+  </Card>
+</CardGroup>
+
+<Note>
+You must provide account information (CBU/IBAN) if you want to accept QR or credit card payments.
+</Note>
+
+## Getting Started
+
+Ready to become a fixer? Follow these steps:
+
+1. **Review Requirements**: Ensure you meet the platform requirements
+2. **Complete Registration**: Follow the [Getting Started](/fixers/getting-started) guide
+3. **Set Up Your Profile**: Complete all 7 onboarding steps
+4. **Create Job Offers**: List your services as described in [Job Offers](/fixers/job-offers)
+5. **Start Earning**: Begin receiving and completing jobs
+
+## Support Resources
+
+- View the [Dashboard Guide](/fixers/dashboard) for detailed dashboard navigation
+- Learn about [Job Offer Management](/fixers/job-offers)
+- Set up your [Digital Wallet](/fixers/wallet) for payments
+- Manage your [Calendar and Availability](/fixers/calendar)
+
+<Tip>
+Complete your profile 100% to increase your visibility and attract more clients. Profiles with photos, certifications, and portfolios receive significantly more job requests.
+</Tip>

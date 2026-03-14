@@ -1,0 +1,634 @@
+---
+title: 'Jobs API'
+description: 'Job offers, job requests, and service listings'
+---
+
+## Overview
+
+The Jobs API manages two primary entities:
+1. **Job Offers**: Services advertised by fixers
+2. **Job Requests**: Service requests created by requesters
+
+Both use different endpoints and data structures optimized for their use cases.
+
+## Job Offers
+
+Job offers are services advertised by fixers on the platform.
+
+### Get All Job Offers
+
+Retrieve all active job offers.
+
+```typescript
+GET /api/job-offers
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useGetAllJobsQuery } from '@/app/redux/services/jobApi';
+
+const { data: jobs, isLoading } = useGetAllJobsQuery();
+```
+
+**Response:**
+
+```typescript
+IJobOffer[]
+```
+
+### Get Job Offers by Fixer
+
+Retrieve all job offers created by a specific fixer.
+
+```typescript
+GET /api/job-offers/fixer/{fixerId}
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useGetJobsByFixerQuery } from '@/app/redux/services/jobApi';
+
+const { data: jobs } = useGetJobsByFixerQuery(fixerId);
+```
+
+**Path Parameters:**
+
+<ParamField path="fixerId" type="string" required>
+  The fixer's user ID
+</ParamField>
+
+**Response:**
+
+<ResponseField name="data" type="IJobOffer[]">
+  Array of job offers
+</ResponseField>
+
+<ResponseField name="count" type="number">
+  Total number of offers
+</ResponseField>
+
+<CodeGroup>
+```typescript Response Type
+interface IJobOffer {
+  _id: string;
+  fixerId: string;
+  fixerName: string;
+  title: string;
+  description: string;
+  category: string;
+  tags?: string[];
+  price: number;
+  city: string;
+  contactPhone: string;
+  photos: string[];
+  rating?: number;
+  status?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+```
+
+```json Example Response
+{
+  "data": [
+    {
+      "_id": "507f1f77bcf86cd799439011",
+      "fixerId": "507f1f77bcf86cd799439012",
+      "fixerName": "John Doe",
+      "title": "Plumbing Services",
+      "description": "Professional plumbing installation and repair",
+      "category": "plumbing",
+      "tags": ["emergency", "residential", "commercial"],
+      "price": 1500,
+      "city": "Montevideo",
+      "contactPhone": "+598 99 123 456",
+      "photos": [
+        "https://example.com/photo1.jpg",
+        "https://example.com/photo2.jpg"
+      ],
+      "rating": 4.8,
+      "status": true,
+      "createdAt": "2024-01-15T10:30:00Z"
+    }
+  ],
+  "count": 1
+}
+```
+</CodeGroup>
+
+### Create Job Offer
+
+Create a new job offer.
+
+```typescript
+POST /api/job-offers
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useCreateJobMutation } from '@/app/redux/services/jobApi';
+
+const [createJob, { isLoading }] = useCreateJobMutation();
+
+const formData = new FormData();
+formData.append('fixerId', userId);
+formData.append('fixerName', userName);
+formData.append('title', 'Plumbing Services');
+formData.append('description', 'Professional plumbing...');
+formData.append('category', 'plumbing');
+formData.append('price', '1500');
+formData.append('city', 'Montevideo');
+formData.append('contactPhone', '+598 99 123 456');
+
+// Append photos
+files.forEach(file => {
+  formData.append('photos', file);
+});
+
+await createJob(formData);
+```
+
+**Request Body (FormData):**
+
+<ParamField body="fixerId" type="string" required>
+  Fixer's user ID
+</ParamField>
+
+<ParamField body="fixerName" type="string" required>
+  Fixer's display name
+</ParamField>
+
+<ParamField body="title" type="string" required>
+  Job offer title
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  Detailed description of the service
+</ParamField>
+
+<ParamField body="category" type="string" required>
+  Service category (e.g., "plumbing", "electrical", "carpentry")
+</ParamField>
+
+<ParamField body="price" type="number" required>
+  Service price in local currency
+</ParamField>
+
+<ParamField body="city" type="string" required>
+  City where service is offered
+</ParamField>
+
+<ParamField body="contactPhone" type="string" required>
+  Contact phone number
+</ParamField>
+
+<ParamField body="photos" type="File[]">
+  Service photos (multiple files supported)
+</ParamField>
+
+<ParamField body="tags" type="string[]">
+  Service tags for filtering and search
+</ParamField>
+
+<Note>
+This endpoint accepts `multipart/form-data` for file uploads.
+</Note>
+
+### Update Job Offer
+
+Update an existing job offer.
+
+```typescript
+PATCH /api/job-offers/{jobId}
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useUpdateJobMutation } from '@/app/redux/services/jobApi';
+
+const [updateJob] = useUpdateJobMutation();
+
+const formData = new FormData();
+formData.append('title', 'Updated Title');
+formData.append('price', '2000');
+
+await updateJob({
+  jobId: '507f1f77bcf86cd799439011',
+  formData
+});
+```
+
+**Parameters:**
+
+<ParamField path="jobId" type="string" required>
+  Job offer ID to update
+</ParamField>
+
+<ParamField body="formData" type="FormData" required>
+  Partial job offer data to update
+</ParamField>
+
+### Toggle Job Status
+
+Activate or deactivate a job offer.
+
+```typescript
+PATCH /api/job-offers/{jobId}/toggle-status
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useToggleJobStatusMutation } from '@/app/redux/services/jobApi';
+
+const [toggleStatus] = useToggleJobStatusMutation();
+
+await toggleStatus({ jobId: '507f1f77bcf86cd799439011' });
+```
+
+**Response:**
+
+```typescript
+{
+  _id: string;
+  status: boolean; // toggled value
+  // ... other job offer fields
+}
+```
+
+### Delete Job Offer
+
+Delete a job offer.
+
+```typescript
+DELETE /api/job-offers/{jobId}
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useDeleteJobMutation } from '@/app/redux/services/jobApi';
+
+const [deleteJob] = useDeleteJobMutation();
+
+await deleteJob({
+  jobId: '507f1f77bcf86cd799439011',
+  fixerId: '507f1f77bcf86cd799439012'
+});
+```
+
+**Request Body:**
+
+<ParamField body="jobId" type="string" required>
+  Job offer ID to delete
+</ParamField>
+
+<ParamField body="fixerId" type="string" required>
+  Fixer ID for authorization
+</ParamField>
+
+**Response:**
+
+```json
+{
+  "message": "Job offer deleted successfully"
+}
+```
+
+## Job Requests
+
+Job requests are created by requesters to hire fixers.
+
+### Get User Location
+
+Retrieve the requester's saved location.
+
+```typescript
+GET /api/profile/location
+```
+
+**Headers:**
+
+```typescript
+{
+  'Authorization': `Bearer ${token}`
+}
+```
+
+**Usage:**
+
+```typescript
+import { getUserLocation } from '@/services/job-requests';
+
+const location = await getUserLocation(token);
+console.log(location.lat, location.lng);
+```
+
+**Response:**
+
+<CodeGroup>
+```typescript Response Type
+interface UserLocation {
+  lat: string;
+  lng: string;
+}
+```
+
+```json Example
+{
+  "lat": "-34.9011",
+  "lng": "-56.1645"
+}
+```
+</CodeGroup>
+
+### Create Job Request
+
+Create a new job request.
+
+```typescript
+POST /api/jobrequests
+```
+
+**Headers:**
+
+```typescript
+{
+  'Authorization': `Bearer ${token}`,
+  'Content-Type': 'application/json'
+}
+```
+
+**Request Body:**
+
+<ParamField body="title" type="string" required>
+  Job request title
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  Detailed description of the work needed
+</ParamField>
+
+<ParamField body="location" type="object" required>
+  GeoJSON Point location
+</ParamField>
+
+<ParamField body="location.type" type="string" required>
+  Must be `"Point"`
+</ParamField>
+
+<ParamField body="location.coordinates" type="[string, string]" required>
+  [longitude, latitude] coordinates as strings
+</ParamField>
+
+<ParamField body="startTime" type="string" required>
+  ISO 8601 date string for job start time
+</ParamField>
+
+<ParamField body="endTime" type="string" required>
+  ISO 8601 date string for job end time
+</ParamField>
+
+<ParamField body="price" type="string | number" required>
+  Proposed price for the job
+</ParamField>
+
+<ParamField body="fixerId" type="string" required>
+  Target fixer's user ID
+</ParamField>
+
+<ParamField body="requesterId" type="string" required>
+  Requester's user ID
+</ParamField>
+
+<ParamField body="appointmentId" type="string">
+  Associated appointment ID (if applicable)
+</ParamField>
+
+<ParamField body="offerId" type="string">
+  Associated job offer ID (if applicable)
+</ParamField>
+
+**Usage:**
+
+<CodeGroup>
+```typescript Usage
+import { createJobRequest } from '@/services/job-requests';
+
+const payload: CreateJobRequestPayload = {
+  title: 'Fix leaking faucet',
+  description: 'Kitchen faucet is leaking and needs repair',
+  location: {
+    type: 'Point',
+    coordinates: ['-56.1645', '-34.9011']
+  },
+  startTime: '2024-01-20T10:00:00Z',
+  endTime: '2024-01-20T12:00:00Z',
+  price: 1500,
+  fixerId: '507f1f77bcf86cd799439012',
+  requesterId: '507f1f77bcf86cd799439013'
+};
+
+const result = await createJobRequest(payload, token);
+```
+
+```typescript Types
+interface CreateJobRequestPayload {
+  title: string;
+  description: string;
+  location: {
+    type: 'Point';
+    coordinates: [string, string];
+  };
+  startTime: string;
+  endTime: string;
+  price: string | number;
+  fixerId: string;
+  requesterId: string;
+  appointmentId?: string;
+  offerId?: string;
+}
+
+interface JobRequest {
+  _id: string;
+  title: string;
+  description: string;
+  location?: {
+    type: 'Point';
+    coordinates: [string, string];
+  };
+  startTime?: string;
+  endTime?: string;
+  price: number;
+  requesterId: string;
+  fixerId?: string;
+  status: 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled' | 'paid';
+  createdAt: string;
+  updatedAt?: string;
+  rating?: number;
+  comment?: string;
+  type?: string;
+}
+```
+</CodeGroup>
+
+**Response:**
+
+```json
+{
+  "_id": "507f1f77bcf86cd799439014",
+  "title": "Fix leaking faucet",
+  "description": "Kitchen faucet is leaking and needs repair",
+  "location": {
+    "type": "Point",
+    "coordinates": ["-56.1645", "-34.9011"]
+  },
+  "startTime": "2024-01-20T10:00:00Z",
+  "endTime": "2024-01-20T12:00:00Z",
+  "price": 1500,
+  "fixerId": "507f1f77bcf86cd799439012",
+  "requesterId": "507f1f77bcf86cd799439013",
+  "status": "pending",
+  "createdAt": "2024-01-15T10:30:00Z"
+}
+```
+
+## Job Status Flow
+
+### Job Request Statuses
+
+<Steps>
+  <Step title="pending">
+    Initial status when request is created
+  </Step>
+  <Step title="accepted">
+    Fixer has accepted the job request
+  </Step>
+  <Step title="in_progress">
+    Work is currently being performed
+  </Step>
+  <Step title="completed">
+    Work has been completed
+  </Step>
+  <Step title="paid">
+    Payment has been processed
+  </Step>
+  <Step title="cancelled">
+    Job request was cancelled by either party
+  </Step>
+</Steps>
+
+## Search & Discovery
+
+### Log Search
+
+Log a user's search activity for analytics.
+
+```typescript
+POST /api/searches
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useLogSearchMutation } from '@/app/redux/services/searchApi';
+
+const [logSearch] = useLogSearchMutation();
+
+await logSearch({
+  user_type: 'requester',
+  search_query: 'plumber montevideo',
+  search_type: 'service',
+  filters: {
+    fixer_name: '',
+    city: 'Montevideo',
+    job_type: 'plumbing',
+    search_count: 1
+  }
+});
+```
+
+### Update Search Filters
+
+Update search filter preferences.
+
+```typescript
+PATCH /api/searches
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useUpdateFiltersMutation } from '@/app/redux/services/searchApi';
+
+const [updateFilters] = useUpdateFiltersMutation();
+
+await updateFilters({
+  filters: {
+    fixer_name: 'John Doe',
+    city: 'Montevideo',
+    job_type: 'plumbing',
+    search_count: 5
+  }
+});
+```
+
+## TypeScript Interfaces
+
+```typescript ~/workspace/source/src/types/fixer-profile.ts
+export interface IJobOffer {
+  _id: string;
+  fixerId: string;
+  fixerName: string;
+  title: string;
+  description: string;
+  category: string;
+  tags?: string[];
+  price: number;
+  city: string;
+  contactPhone: string;
+  photos: string[];
+  rating?: number;
+  status?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+```
+
+```typescript ~/workspace/source/src/types/job-request.ts
+export interface JobRequest {
+  _id: string;
+  title: string;
+  description: string;
+  location?: {
+    type: 'Point';
+    coordinates: [string, string];
+  };
+  startTime?: string;
+  endTime?: string;
+  price: number;
+  requesterId: string;
+  fixerId?: string;
+  status: 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled' | 'paid';
+  createdAt: string;
+  updatedAt?: string;
+  rating?: number;
+  comment?: string;
+  type?: string;
+}
+```
+
+## Cache Tags
+
+**Job Offers:**
+- Tag: `Job`
+- Invalidated by: create, update, delete, toggleStatus
+- Provides cache for: getAllJobs, getJobsByFixer
+
+**Search:**
+- Tag: `Requester`
+- Invalidated by: logSearch, updateFilters

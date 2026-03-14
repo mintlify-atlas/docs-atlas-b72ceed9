@@ -1,0 +1,342 @@
+---
+title: 'Google OAuth Integration'
+description: 'Integrate Google OAuth authentication for seamless user login and registration'
+icon: 'google'
+---
+
+# Google OAuth Integration
+
+Servineo uses Google OAuth 2.0 to provide secure, seamless authentication for users. This integration allows users to sign in or register using their Google accounts.
+
+## Overview
+
+The Google OAuth integration is implemented using the `@react-oauth/google` package, which provides React components and hooks for easy integration with Google's authentication system.
+
+**Package:** `@react-oauth/google` v0.12.2
+
+## Setup
+
+<Steps>
+  <Step title="Install Dependencies">
+    The required package is already included in the project:
+    
+    ```bash
+    npm install @react-oauth/google
+    ```
+  </Step>
+
+  <Step title="Configure Environment Variables">
+    Add your Google OAuth client ID to your environment configuration:
+    
+    ```bash .env.local
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id_here
+    ```
+    
+    <Note>
+      Obtain your Google Client ID from the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) by creating OAuth 2.0 credentials.
+    </Note>
+  </Step>
+
+  <Step title="Wrap Your App with GoogleOAuthProvider">
+    The `GoogleOAuthProvider` must wrap any components that use Google authentication.
+  </Step>
+</Steps>
+
+## Implementation
+
+### Provider Setup
+
+Wrap your authentication pages or layouts with the `GoogleOAuthProvider`:
+
+```tsx src/app/[locale]/login/layout.tsx
+import { GoogleOAuthProvider } from '@react-oauth/google';
+
+export default function LoginLayout({ children }) {
+  return (
+    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
+      {children}
+    </GoogleOAuthProvider>
+  );
+}
+```
+
+### Login Component
+
+Implement the Google login button using the `GoogleLogin` component:
+
+```tsx src/Components/login/google/LoginGoogle.tsx
+'use client';
+
+import { useState } from 'react';
+import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
+import { api } from '@/app/redux/services/loginApi';
+
+interface LoginGoogleProps {
+  onMensajeChange: (mensaje: string, tipo: 'error') => void;
+}
+
+export default function LoginGoogle({ onMensajeChange }: LoginGoogleProps) {
+  const [loading, setLoading] = useState(false);
+
+  const handleSuccess = async (credentialResponse: CredentialResponse) => {
+    setLoading(true);
+
+    try {
+      const res = await api.post('/auth/google', {
+        credential: credentialResponse.credential,
+        token: credentialResponse.credential,
+        modo: 'login',
+      });
+
+      if (res.success && res.data) {
+        // Store authentication data
+        localStorage.setItem('servineo_token', res.data.token);
+        localStorage.setItem('servineo_user', JSON.stringify(res.data.user));
+        
+        // Redirect to home
+        window.location.href = '/';
+      } else {
+        const mensajeError = res.message || 'Error al iniciar sesión con Google.';
+        onMensajeChange(mensajeError, 'error');
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        onMensajeChange(err.message, 'error');
+      } else {
+        onMensajeChange('No se pudo conectar con el servidor.', 'error');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleError = () => {
+    onMensajeChange('Error al iniciar sesión con Google.', 'error');
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <GoogleLogin onSuccess={handleSuccess} onError={handleError} />
+      
+      {loading && (
+        <p className="text-sm text-gray-500 mt-2 animate-pulse">
+          Verificando credenciales...
+        </p>
+      )}
+    </div>
+  );
+}
+```
+
+### Custom Google Button
+
+For custom styling, you can create a wrapper component:
+
+```tsx src/Components/requester/botonRegistro/buttonGoogle.tsx
+'use client';
+
+import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
+import { FcGoogle } from 'react-icons/fc';
+
+interface GoogleButtonProps {
+  onLoginSuccess: (credentialResponse: CredentialResponse) => void;
+  disabled?: boolean;
+  onDisabledClick?: () => void;
+}
+
+export default function GoogleButton({
+  onLoginSuccess,
+  disabled,
+  onDisabledClick,
+}: GoogleButtonProps) {
+  return (
+    <div className='relative inline-block'>
+      <button
+        className={`flex items-center gap-2 bg-white border border-gray-300 
+          font-semibold py-2 px-4 rounded-lg shadow-sm text-black transition-colors
+          ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}
+        `}
+      >
+        <FcGoogle size={24} />
+        Continuar con Google
+      </button>
+
+      {disabled ? (
+        <div 
+          className='absolute inset-0 cursor-not-allowed' 
+          onClick={() => onDisabledClick?.()} 
+        />
+      ) : (
+        <div className='absolute inset-0 opacity-0 cursor-pointer'>
+          <GoogleLogin
+            onSuccess={onLoginSuccess}
+            onError={() => console.log('Error al iniciar sesión con Google')}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Authentication Flow
+
+<Steps>
+  <Step title="User clicks Google login button">
+    The `GoogleLogin` component renders Google's authentication UI.
+  </Step>
+
+  <Step title="User authenticates with Google">
+    Google handles the authentication and returns a credential response containing a JWT token.
+  </Step>
+
+  <Step title="Send credential to backend">
+    The credential is sent to your backend API endpoint (`/auth/google`) for verification.
+    
+    ```typescript
+    const res = await api.post('/auth/google', {
+      credential: credentialResponse.credential,
+      modo: 'login',
+    });
+    ```
+  </Step>
+
+  <Step title="Store session data">
+    On successful verification, store the authentication token and user data:
+    
+    ```typescript
+    localStorage.setItem('servineo_token', res.data.token);
+    localStorage.setItem('servineo_user', JSON.stringify(res.data.user));
+    ```
+  </Step>
+
+  <Step title="Redirect user">
+    Redirect the authenticated user to the appropriate page.
+  </Step>
+</Steps>
+
+## API Response Structure
+
+The backend should return the following structure:
+
+```typescript
+interface GoogleLoginResponse {
+  token: string;
+  user: {
+    id: string | number;
+    name: string;
+    email: string;
+    picture?: string;
+  };
+  message?: string;
+}
+```
+
+## Usage in Different Contexts
+
+### Sign Up Flow
+
+```tsx src/app/[locale]/signUp/layout.tsx
+import { GoogleOAuthProvider } from '@react-oauth/google';
+
+export default function SignUpLayout({ children }) {
+  return (
+    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
+      {children}
+    </GoogleOAuthProvider>
+  );
+}
+```
+
+### Account Linking
+
+For linking existing accounts with Google:
+
+```tsx src/app/[locale]/requesterEdit/layout.tsx
+import { GoogleOAuthProvider } from '@react-oauth/google';
+
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!;
+
+export default function RequesterEditLayout({ children }) {
+  return (
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      {children}
+    </GoogleOAuthProvider>
+  );
+}
+```
+
+## Error Handling
+
+<Warning>
+  Always implement proper error handling for authentication failures.
+</Warning>
+
+```typescript
+const handleError = () => {
+  // Log error for debugging
+  console.error('Google authentication failed');
+  
+  // Show user-friendly message
+  onMensajeChange('Error al iniciar sesión con Google.', 'error');
+};
+```
+
+## Security Considerations
+
+<Info>
+  - Never expose your Google Client Secret in client-side code
+  - Always verify the credential token on your backend server
+  - Use HTTPS in production environments
+  - Implement rate limiting on your authentication endpoints
+</Info>
+
+## Testing
+
+To test the Google OAuth integration:
+
+1. Ensure your Google Cloud Console has the correct redirect URIs configured
+2. Add test users in the Google Cloud Console (during development)
+3. Test both successful and failed authentication scenarios
+4. Verify token storage and user data persistence
+
+## Common Issues
+
+### Client ID Not Found
+
+Ensure the environment variable is properly set:
+
+```bash
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_actual_client_id
+```
+
+### Redirect URI Mismatch
+
+Add all development and production URLs to authorized redirect URIs in Google Cloud Console:
+
+- `http://localhost:3000`
+- `https://yourdomain.com`
+
+### Token Verification Fails
+
+Verify the token on your backend using Google's token verification:
+
+```javascript
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+async function verify(token) {
+  const ticket = await client.verifyIdToken({
+    idToken: token,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
+  const payload = ticket.getPayload();
+  return payload;
+}
+```
+
+## Related Resources
+
+- [Google OAuth Documentation](https://developers.google.com/identity/protocols/oauth2)
+- [@react-oauth/google Package](https://www.npmjs.com/package/@react-oauth/google)
+- [Google Cloud Console](https://console.cloud.google.com/)

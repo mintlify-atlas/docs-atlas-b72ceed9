@@ -1,0 +1,525 @@
+---
+title: 'Project Structure'
+description: 'Directory organization and file structure of Servineo Frontend'
+icon: 'folder-tree'
+---
+
+## Root Directory Structure
+
+```
+servineo-frontend/
+├── src/                    # Source code
+├── messages/               # i18n translation files
+│   ├── en.json
+│   └── es.json
+├── public/                 # Static assets
+├── .next/                  # Next.js build output
+├── node_modules/           # Dependencies
+├── package.json            # Project dependencies
+├── tsconfig.json          # TypeScript configuration
+├── next.config.ts         # Next.js configuration
+├── tailwind.config.js     # Tailwind CSS configuration
+├── postcss.config.js      # PostCSS configuration
+├── eslint.config.mjs      # ESLint configuration
+├── .prettierrc.json       # Prettier configuration
+└── components.json        # shadcn/ui configuration
+```
+
+## Source Directory (`src/`)
+
+The `src/` directory contains all application source code:
+
+```
+src/
+├── app/                   # Next.js App Router
+├── Components/            # React components
+├── hooks/                 # Custom React hooks
+├── utils/                 # Utility functions and contexts
+├── services/              # API service functions
+├── types/                 # TypeScript type definitions
+├── lib/                   # Library utilities
+├── shared/                # Shared resources
+├── config/                # Configuration files
+├── jsons/                 # Static JSON data
+├── i18n/                  # Internationalization config
+└── middleware.ts          # Next.js middleware
+```
+
+<Info>
+  The `@/` path alias is configured to point to `src/`, allowing imports like `import Component from '@/Components/MyComponent'`.
+</Info>
+
+## App Directory (`src/app/`)
+
+Next.js 15 App Router structure with file-based routing:
+
+```
+src/app/
+├── [locale]/              # Internationalized routes
+│   ├── layout.tsx         # Root layout with providers
+│   ├── page.tsx           # Home page
+│   ├── providers.tsx      # Client-side providers
+│   ├── adv-search/        # Advanced search
+│   ├── ask-for-help/      # Help/support pages
+│   ├── become-fixer/      # Fixer registration
+│   ├── calendar/          # Calendar view
+│   ├── completed-jobs/    # Job completion tracking
+│   ├── fixer/             # Fixer profile and dashboard
+│   ├── fixer-ratings-details/
+│   ├── fixers/            # Fixer listings
+│   ├── howUseServineo/    # Tutorial/onboarding
+│   ├── info/              # Information pages
+│   ├── job-offer-list/    # Job offer listings
+│   ├── job-request/       # Job request creation
+│   ├── login/             # Authentication
+│   ├── payment/           # Payment processing
+│   ├── por-que-servineo/  # About/Why Servineo
+│   ├── profile/           # User profile
+│   ├── promotions/        # Promotional content
+│   ├── requested-jobs/    # User's requested jobs
+│   ├── requesterEdit/     # Requester profile editing
+│   ├── requesters/        # Requester listings
+│   ├── resultsAdvSearch/  # Advanced search results
+│   └── servicios/         # Services catalog
+├── components/            # App-scoped components
+├── lib/                   # App-scoped utilities
+├── redux/                 # Redux store and slices
+│   ├── store.ts           # Store configuration
+│   ├── hooks.ts           # Typed Redux hooks
+│   ├── ReduxProvider.tsx  # Redux provider component
+│   ├── slice/             # Redux slices
+│   ├── services/          # RTK Query APIs
+│   ├── features/          # Feature-specific logic
+│   └── contants/          # Constants and translations
+├── Mapa/                  # Map-related pages
+├── por-que-servineo/      # Static about page
+├── globals.css            # Global styles
+├── fonts.ts               # Font configuration
+├── favicon.ico            # Site favicon
+└── providers.tsx          # App-level providers
+```
+
+### App Router Key Files
+
+<CodeGroup>
+
+```tsx layout.tsx
+// src/app/[locale]/layout.tsx
+// Root layout with internationalization
+export default async function RootLayout({ 
+  children, 
+  params 
+}: Props) {
+  const { locale } = await params;
+  const messages = await loader();
+  
+  return (
+    <html lang={locale}>
+      <body>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <Providers>
+            <TourLogic />
+            <ConditionalTopMenu />
+            {children}
+            <FooterSection />
+          </Providers>
+        </NextIntlClientProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+```tsx providers.tsx
+// src/app/providers.tsx
+// Client-side provider wrapper
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <Provider store={store}>
+      <TourProviderWrapper>
+        {children}
+      </TourProviderWrapper>
+    </Provider>
+  );
+}
+```
+
+</CodeGroup>
+
+<Note>
+  All routes under `[locale]/` are automatically internationalized. The locale parameter is extracted from the URL (e.g., `/en/login`, `/es/login`).
+</Note>
+
+## Redux Directory (`src/app/redux/`)
+
+State management architecture:
+
+```
+src/app/redux/
+├── store.ts               # Redux store configuration
+├── hooks.ts               # Typed useAppDispatch, useAppSelector
+├── ReduxProvider.tsx      # Client component wrapper
+│
+├── slice/                 # Redux slices (state)
+│   ├── userSlice.ts       # User authentication state
+│   ├── fixerSlice.ts      # Fixer data state
+│   ├── filterSlice.ts     # Search filter state
+│   ├── jobOffersSlice.ts  # Job offers state
+│   ├── jobOfert.ts        # Single job offer state
+│   └── fixersByJobSlice.ts
+│
+├── services/              # RTK Query API services
+│   ├── baseApi.ts         # Base API configuration
+│   ├── loginApi.ts        # Authentication endpoints
+│   ├── userApi.ts         # User CRUD operations
+│   ├── jobApi.ts          # Job endpoints
+│   ├── jobOfferApi.ts     # Job offer endpoints
+│   ├── jobOffersApi.ts    # Job offers list
+│   ├── fixerApi.ts        # Fixer endpoints
+│   ├── searchApi.ts       # Search endpoints
+│   ├── searchHistoryApi.ts
+│   ├── dashboardApi.ts    # Analytics endpoints
+│   ├── statisticsApi.ts   # Statistics endpoints
+│   ├── experiencesApi.ts  # Experience CRUD
+│   ├── portafolioApi.ts   # Portfolio management
+│   ├── certifications.ts  # Certification management
+│   ├── activityApi.ts     # Activity tracking
+│   └── trackingAppointmentsApi.ts
+│
+├── features/              # Feature-specific hooks and logic
+│   ├── adv-search/
+│   │   ├── useAdvSearchLogic.ts
+│   │   └── useSyncUrlParams.ts
+│   ├── jobOffers/
+│   │   ├── jobOffersHooks.ts
+│   │   ├── selectors.ts
+│   │   ├── parsers.ts
+│   │   ├── navigation.ts
+│   │   ├── storage.ts
+│   │   ├── session.ts
+│   │   └── useImageCarousel.ts
+│   └── searchHistory/
+│       ├── useSearchHistory.ts
+│       ├── useSearchSuggestions.ts
+│       ├── useSearchKeyboard.ts
+│       └── useSearchTouch.ts
+│
+└── contants/             # Constants and mappings
+    ├── index.ts
+    ├── dbValues.ts
+    └── translations.ts
+```
+
+### Redux Store Structure
+
+The store is organized into domain-specific slices:
+
+```typescript src/app/redux/store.ts
+export const store = configureStore({
+  reducer: {
+    [baseApi.reducerPath]: baseApi.reducer,  // RTK Query cache
+    user: userReducer,                       // Auth & user data
+    fixer: fixerReducer,                     // Fixer profiles
+    filters: filterReducer,                  // Search filters
+    jobOffers: jobOffersReducer,             // Job listings
+    jobOfert: jobOfertReducer,               // Single job
+    fixersByJob: fixersByJobReducer,         // Job-fixer relations
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware()
+      .concat(baseApi.middleware)  // RTK Query middleware
+      .concat(logger),              // Redux logger (dev only)
+});
+```
+
+<Tip>
+  Always use typed hooks from `src/app/redux/hooks.ts`:
+  
+  ```typescript
+  import { useAppDispatch, useAppSelector } from '@/app/redux/hooks';
+  
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(state => state.user);
+  ```
+</Tip>
+
+## Components Directory (`src/Components/`)
+
+React components organized by feature:
+
+```
+src/Components/
+├── Adv-search/           # Advanced search UI
+├── Common/               # Shared common components
+├── Contact/              # Contact forms
+├── Home/                 # Homepage sections
+├── HowUseServineo/       # Tutorial components
+├── Job-offers/           # Job offer components
+│   ├── Filter/
+│   ├── Pagination/
+│   ├── Search/
+│   ├── Sort/
+│   └── maps/
+├── Navigation/           # Top menu, navigation
+├── ResultsAdvSearch/     # Search results display
+├── Shared/               # Shared UI components
+├── Statistics-panel/     # Analytics dashboard
+├── Tabs/                 # Tab components
+├── Tour/                 # Product tour/onboarding
+├── appointments/         # Appointment management
+│   └── forms/
+│       ├── modules/
+│       └── popups/
+├── ask_for_help/         # Help widgets
+├── atoms/                # Atomic design atoms
+├── calendar/             # Calendar components
+│   ├── Header/
+│   ├── day/
+│   ├── week/
+│   ├── month/
+│   ├── mobile/
+│   └── ui/
+├── fixer/                # Fixer-specific components
+│   ├── dashboard/
+│   └── steps/
+├── interface/            # TypeScript interfaces
+├── list/                 # List views
+│   └── DatePicker/
+├── login/                # Login/auth components
+│   ├── Proveedores/
+│   └── google/
+├── maps/                 # Map components
+│   └── location/
+├── payment/              # Payment UI
+└── requester/            # Requester components
+    └── Authenticator/
+```
+
+<Warning>
+  The `Components` directory uses **PascalCase** while most other directories use **lowercase**. Be mindful of this when importing:
+  
+  ```typescript
+  import TopMenu from '@/Components/Navigation/TopMenu';
+  ```
+</Warning>
+
+## Hooks Directory (`src/hooks/`)
+
+Custom React hooks for shared logic:
+
+```
+src/hooks/
+├── Appointments/
+│   ├── useHourAppointments.ts
+│   └── useSixMonthsAppointments.ts
+├── User/
+│   └── useUserPermissions.ts
+├── useAppointmentsDisable.ts
+├── useCalendarNavigation.ts
+├── useCalendarView.ts
+├── useDailyAppointments.ts
+├── useDayUtilities.ts
+├── useFixerData.ts
+├── useFixersByJob.ts
+├── useHourAppointments.ts
+├── useMessage.ts
+└── useUserPermissions.ts
+```
+
+## Types Directory (`src/types/`)
+
+TypeScript type definitions:
+
+```
+src/types/
+├── User.ts              # User interface (alternate)
+├── user.ts              # User interface
+├── fixer.ts             # Fixer type
+├── fixer-profile.ts     # Fixer profile
+├── fixer-component.ts   # Fixer component props
+├── job.ts               # Job type
+├── jobs.ts              # Jobs collection
+├── job-offer.ts         # Job offer
+├── jobOffers.ts         # Job offers collection
+├── job-request.ts       # Job request
+├── promotion.ts         # Promotion type
+└── leaflet.d.ts         # Leaflet type augmentation
+```
+
+<Note>
+  There are duplicate type files (e.g., `User.ts` and `user.ts`). This may cause issues on case-sensitive file systems. Consider consolidating to one convention.
+</Note>
+
+## Services Directory (`src/services/`)
+
+API service functions (non-RTK Query):
+
+```
+src/services/
+├── appointments.ts
+├── fixerService.ts
+├── job-info.ts
+├── job-info-jobs.ts
+├── job-request.modal.ts
+├── job-requests.ts
+├── jobs.ts
+└── promotions.ts
+```
+
+<Info>
+  This directory contains older API service patterns. New API integrations should use RTK Query in `src/app/redux/services/`.
+</Info>
+
+## Utils Directory (`src/utils/`)
+
+Utility functions and contexts:
+
+```
+src/utils/
+├── Appointments/
+│   ├── getAppointmentsByHour.ts
+│   └── getSixMonthAppointments.ts
+├── contexts/
+│   ├── AppointmentsContext/
+│   │   └── AppoinmentsContext.tsx
+│   ├── DayliViewRequesterContext.tsx
+│   └── UserRoleContext.tsx
+├── dateHelpers.ts
+├── generateSlots.ts
+├── getAppointmentsByDate.ts
+├── getAppointmentsDisable.ts
+├── getSchedulesCont.ts
+├── paymentapi.ts
+├── types.ts
+└── useDailyConts.ts
+```
+
+## Configuration Files
+
+### Internationalization (`src/i18n/`)
+
+```
+src/i18n/
+├── routing.ts           # Locale routing configuration
+├── request.ts           # Server-side i18n setup
+└── navigation.ts        # Localized navigation helpers
+```
+
+```typescript src/i18n/routing.ts
+export const routing = defineRouting({
+  locales: ['en', 'es'],
+  defaultLocale: 'en',
+});
+```
+
+### Static Data (`src/jsons/`)
+
+```
+src/jsons/
+├── fixers.json         # Sample fixer data
+└── jobs.json           # Sample job data
+```
+
+### Library Utilities (`src/lib/`)
+
+```
+src/lib/
+├── utils.ts                   # General utilities
+└── useJobTypeAutoMatch.ts     # Job type matching hook
+```
+
+## Middleware
+
+```typescript src/middleware.ts
+import createMiddleware from 'next-intl/middleware';
+import { routing } from './i18n/routing';
+
+export default createMiddleware({
+  locales: routing.locales,
+  defaultLocale: routing.defaultLocale,
+  localeDetection: true,
+  localeCookie: true,
+});
+
+export const config = {
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+};
+```
+
+<Tip>
+  The middleware automatically redirects users to their preferred locale and handles locale detection via browser settings and cookies.
+</Tip>
+
+## Key Architectural Patterns
+
+### 1. Feature-Based Organization
+
+Redux features are organized by domain (jobOffers, searchHistory, etc.) with co-located hooks, selectors, and utilities.
+
+### 2. Component Hierarchy
+
+- **Atoms**: Smallest reusable components (`src/Components/atoms/`)
+- **Shared**: Cross-feature components (`src/Components/Shared/`)
+- **Feature**: Feature-specific components (calendar, fixer, etc.)
+- **Page**: App Router page components (`src/app/[locale]/*/page.tsx`)
+
+### 3. Layered Architecture
+
+```
+Presentation Layer     → src/Components/, src/app/[locale]/
+Business Logic Layer   → src/app/redux/features/, src/hooks/
+Data Access Layer      → src/app/redux/services/, src/services/
+Utility Layer          → src/utils/, src/lib/
+```
+
+### 4. Path Aliases
+
+```typescript tsconfig.json
+{
+  "paths": {
+    "@/*": ["./src/*"]
+  }
+}
+```
+
+Always use `@/` for absolute imports:
+
+```typescript
+import { useAppSelector } from '@/app/redux/hooks';
+import TopMenu from '@/Components/Navigation/TopMenu';
+import { IUser } from '@/types/user';
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Path Aliases" icon="at">
+    Always import with `@/` instead of relative paths for better refactoring
+  </Card>
+  <Card title="Co-locate Related Files" icon="folder">
+    Keep feature-specific code together (components, hooks, types)
+  </Card>
+  <Card title="Follow Naming Conventions" icon="text">
+    - Components: PascalCase
+    - Hooks: camelCase with `use` prefix
+    - Types: PascalCase with `I` prefix for interfaces
+  </Card>
+  <Card title="Separate Concerns" icon="layer-group">
+    - Use RTK Query for API calls
+    - Keep business logic in hooks
+    - Keep components presentational
+  </Card>
+</CardGroup>
+
+## File Naming Conventions
+
+- **Components**: `MyComponent.tsx` (PascalCase)
+- **Hooks**: `useMyHook.ts` (camelCase)
+- **Utils**: `myUtility.ts` (camelCase)
+- **Types**: `my-type.ts` (kebab-case) or `MyType.ts` (PascalCase)
+- **Pages**: `page.tsx` (Next.js convention)
+- **Layouts**: `layout.tsx` (Next.js convention)
+
+<Warning>
+  Inconsistent casing exists in the codebase (e.g., `User.ts` vs `user.ts`). New files should follow lowercase or kebab-case for consistency and cross-platform compatibility.
+</Warning>

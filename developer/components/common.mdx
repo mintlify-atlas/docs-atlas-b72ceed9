@@ -1,0 +1,539 @@
+---
+title: 'Common Components'
+description: 'Reusable UI primitives and shared components in Servineo Frontend'
+icon: 'layer-group'
+---
+
+## Overview
+
+Common components are the foundational building blocks of the Servineo UI. These components are used throughout the application and provide consistent styling, behavior, and accessibility.
+
+## Button
+
+A versatile button component with multiple variants, sizes, and loading states.
+
+### Props
+
+<ParamField path="variant" type="'primary' | 'secondary' | 'outline' | 'ghost' | 'link'" default="'primary'">
+  Visual style variant of the button
+</ParamField>
+
+<ParamField path="size" type="'sm' | 'md' | 'lg'" default="'md'">
+  Size of the button
+</ParamField>
+
+<ParamField path="isLoading" type="boolean" default="false">
+  Shows loading spinner and disables interaction
+</ParamField>
+
+<ParamField path="disabled" type="boolean">
+  Disables the button
+</ParamField>
+
+<ParamField path="className" type="string">
+  Additional CSS classes to apply
+</ParamField>
+
+### Usage
+
+<CodeGroup>
+```tsx Basic Button
+import { Button } from '@/Components/Common/Button';
+
+export default function Example() {
+  return (
+    <Button variant="primary" size="md">
+      Click Me
+    </Button>
+  );
+}
+```
+
+```tsx Loading State
+import { Button } from '@/Components/Common/Button';
+import { useState } from 'react';
+
+export default function SubmitForm() {
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    // API call...
+    setLoading(false);
+  };
+
+  return (
+    <Button isLoading={loading} onClick={handleSubmit}>
+      Submit
+    </Button>
+  );
+}
+```
+
+```tsx All Variants
+import { Button } from '@/Components/Common/Button';
+
+export default function ButtonShowcase() {
+  return (
+    <div className="flex gap-2">
+      <Button variant="primary">Primary</Button>
+      <Button variant="secondary">Secondary</Button>
+      <Button variant="outline">Outline</Button>
+      <Button variant="ghost">Ghost</Button>
+      <Button variant="link">Link</Button>
+    </div>
+  );
+}
+```
+</CodeGroup>
+
+### Variants
+
+- **Primary**: Solid background with primary color (blue)
+- **Secondary**: Secondary color background
+- **Outline**: Transparent with border
+- **Ghost**: Transparent, shows background on hover
+- **Link**: Text-only with underline on hover
+
+### Sizes
+
+- **sm**: Height 36px, smaller padding
+- **md**: Height 40px, standard padding
+- **lg**: Height 44px, larger padding
+
+<Note>
+The Button component extends all native `HTMLButtonElement` attributes, so you can use standard button props like `onClick`, `type`, `aria-label`, etc.
+</Note>
+
+---
+
+## Input
+
+Text input component with integrated label and error message display.
+
+### Props
+
+<ParamField path="label" type="string">
+  Label text displayed above the input
+</ParamField>
+
+<ParamField path="error" type="string">
+  Error message displayed below the input in red
+</ParamField>
+
+<ParamField path="className" type="string">
+  Additional CSS classes for the input element
+</ParamField>
+
+<ParamField path="containerClassName" type="string">
+  CSS classes for the container div
+</ParamField>
+
+### Usage
+
+<CodeGroup>
+```tsx Basic Input
+import Input from '@/Components/Common/Input';
+
+export default function Form() {
+  return (
+    <Input 
+      label="Email Address"
+      type="email"
+      placeholder="you@example.com"
+    />
+  );
+}
+```
+
+```tsx With Error State
+import Input from '@/Components/Common/Input';
+import { useState } from 'react';
+
+export default function ValidatedForm() {
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
+
+  const validate = (value: string) => {
+    if (!value.includes('@')) {
+      setError('Please enter a valid email');
+    } else {
+      setError('');
+    }
+  };
+
+  return (
+    <Input 
+      label="Email"
+      value={email}
+      onChange={(e) => {
+        setEmail(e.target.value);
+        validate(e.target.value);
+      }}
+      error={error}
+    />
+  );
+}
+```
+
+```tsx Disabled State
+import Input from '@/Components/Common/Input';
+
+export default function ReadOnlyField() {
+  return (
+    <Input 
+      label="Username"
+      value="john_doe"
+      disabled
+    />
+  );
+}
+```
+</CodeGroup>
+
+### Features
+
+- **Automatic Layout**: Label, input, and error in consistent layout
+- **Focus States**: Ring effect on focus
+- **Disabled State**: Grayed out appearance
+- **Accessibility**: Proper label association
+
+<Tip>
+The Input component extends all native `HTMLInputElement` attributes, enabling full control over input behavior (required, pattern, maxLength, etc.).
+</Tip>
+
+---
+
+## Accordion
+
+Collapsible content section with smooth animations.
+
+### Props
+
+<ParamField path="title" type="string" required>
+  Accordion header text
+</ParamField>
+
+<ParamField path="children" type="React.ReactNode" required>
+  Content to display when expanded
+</ParamField>
+
+<ParamField path="isOpen" type="boolean">
+  Controlled state for open/closed (optional)
+</ParamField>
+
+<ParamField path="onToggle" type="() => void">
+  Callback when accordion is toggled (required if isOpen is provided)
+</ParamField>
+
+<ParamField path="className" type="string">
+  Additional CSS classes
+</ParamField>
+
+### Usage
+
+<CodeGroup>
+```tsx Uncontrolled Accordion
+import Accordion from '@/Components/Common/Accordion';
+
+export default function FAQ() {
+  return (
+    <Accordion title="What is Servineo?">
+      <p>
+        Servineo is a platform connecting service providers
+        with customers looking for professional help.
+      </p>
+    </Accordion>
+  );
+}
+```
+
+```tsx Controlled Accordion
+import Accordion from '@/Components/Common/Accordion';
+import { useState } from 'react';
+
+export default function ControlledFAQ() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  return (
+    <div className="space-y-2">
+      <Accordion 
+        title="Question 1"
+        isOpen={openIndex === 0}
+        onToggle={() => setOpenIndex(openIndex === 0 ? null : 0)}
+      >
+        <p>Answer to question 1</p>
+      </Accordion>
+      
+      <Accordion 
+        title="Question 2"
+        isOpen={openIndex === 1}
+        onToggle={() => setOpenIndex(openIndex === 1 ? null : 1)}
+      >
+        <p>Answer to question 2</p>
+      </Accordion>
+    </div>
+  );
+}
+```
+</CodeGroup>
+
+### Behavior
+
+- **Smooth Animation**: CSS transitions for expand/collapse
+- **Icon Rotation**: Chevron rotates 180° when open
+- **Dual Mode**: Works as controlled or uncontrolled component
+- **Keyboard Accessible**: Full keyboard navigation support
+
+---
+
+## StatCard
+
+Display statistical information with animated hover effects.
+
+### Props
+
+<ParamField path="number" type="string" required>
+  The numeric value or statistic to display
+</ParamField>
+
+<ParamField path="text" type="string" required>
+  Descriptive label for the statistic
+</ParamField>
+
+### Usage
+
+```tsx StatCard Example
+import StatCard from '@/Components/Common/StatCard';
+
+export default function Stats() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <StatCard number="1,500+" text="Active Fixers" />
+      <StatCard number="95%" text="Customer Satisfaction" />
+      <StatCard number="24/7" text="Support Available" />
+    </div>
+  );
+}
+```
+
+### Features
+
+- **Backdrop Blur**: Semi-transparent background with blur effect
+- **Hover Animation**: Scale up on hover with shadow
+- **Responsive Text**: Adjusts font size on mobile
+
+---
+
+## Card
+
+General-purpose card component with neon border effect.
+
+### Props
+
+<ParamField path="title" type="string">
+  Optional card title
+</ParamField>
+
+<ParamField path="children" type="React.ReactNode" required>
+  Card content
+</ParamField>
+
+<ParamField path="className" type="string">
+  Additional CSS classes
+</ParamField>
+
+### Usage
+
+```tsx Card Component
+import { Card } from '@/Components/Card';
+
+export default function ServiceCard() {
+  return (
+    <Card title="Plumbing Services">
+      <p>Professional plumbing for residential and commercial.</p>
+      <button>Learn More</button>
+    </Card>
+  );
+}
+```
+
+---
+
+## Modal
+
+Full-featured modal dialog with portal rendering.
+
+### Props
+
+<ParamField path="open" type="boolean" required>
+  Controls modal visibility
+</ParamField>
+
+<ParamField path="onClose" type="() => void" required>
+  Callback when modal should close
+</ParamField>
+
+<ParamField path="title" type="React.ReactNode">
+  Modal header title
+</ParamField>
+
+<ParamField path="size" type="'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'" default="'md'">
+  Modal width/size
+</ParamField>
+
+<ParamField path="showCloseButton" type="boolean" default="true">
+  Show X button in header
+</ParamField>
+
+<ParamField path="closeOnOverlayClick" type="boolean" default="true">
+  Close when clicking outside modal
+</ParamField>
+
+<ParamField path="closeOnEsc" type="boolean" default="true">
+  Close when pressing Escape key
+</ParamField>
+
+### Usage
+
+<CodeGroup>
+```tsx Basic Modal
+import { Modal } from '@/Components/Modal';
+import { useState } from 'react';
+
+export default function Example() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)}>Open Modal</button>
+      
+      <Modal 
+        open={open} 
+        onClose={() => setOpen(false)}
+        title="Confirmation"
+      >
+        <Modal.Body>
+          <p>Are you sure you want to continue?</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <button onClick={() => setOpen(false)}>Cancel</button>
+          <button onClick={() => setOpen(false)}>Confirm</button>
+        </Modal.Footer>
+      </Modal>
+    </>
+  );
+}
+```
+
+```tsx Full-Screen Modal
+import { Modal } from '@/Components/Modal';
+
+export default function FullScreenExample({ open, onClose }) {
+  return (
+    <Modal 
+      open={open} 
+      onClose={onClose}
+      size="full"
+      title="Large Content"
+    >
+      <Modal.Body>
+        {/* Scrollable content */}
+      </Modal.Body>
+    </Modal>
+  );
+}
+```
+</CodeGroup>
+
+### Subcomponents
+
+- **Modal.Header**: Custom header section
+- **Modal.Body**: Scrollable content area
+- **Modal.Footer**: Action buttons area
+
+### Features
+
+- **Portal Rendering**: Rendered outside React tree
+- **Body Scroll Lock**: Prevents background scrolling
+- **Focus Trap**: Keeps focus within modal
+- **Backdrop Blur**: Blurred background overlay
+- **Responsive**: Mobile-optimized layout
+
+---
+
+## Tabs
+
+Tab navigation system with context-based state management.
+
+### Components
+
+- **Tabs**: Root component with state
+- **TabsList**: Container for tab triggers
+- **TabsTrigger**: Individual tab button
+- **TabsContent**: Content panel for each tab
+
+### Usage
+
+```tsx Tabs Example
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/Components/Tabs/Tabs';
+import { useState } from 'react';
+
+export default function Dashboard() {
+  const [activeTab, setActiveTab] = useState('overview');
+
+  return (
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <TabsList>
+        <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        <TabsTrigger value="reports">Reports</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="overview">
+        <p>Overview content</p>
+      </TabsContent>
+
+      <TabsContent value="analytics">
+        <p>Analytics content</p>
+      </TabsContent>
+
+      <TabsContent value="reports">
+        <p>Reports content</p>
+      </TabsContent>
+    </Tabs>
+  );
+}
+```
+
+### Features
+
+- **Context API**: State shared via React Context
+- **Active State**: Visual indication of selected tab
+- **ARIA Support**: Proper `role="tab"` and `aria-selected`
+- **Keyboard Navigation**: Arrow key support
+
+---
+
+## Best Practices
+
+<Tip>
+**Component Guidelines**:
+
+1. **Always provide types**: Use TypeScript interfaces for props
+2. **Compose components**: Build complex UIs from simple primitives
+3. **Use className**: Allow style customization via className prop
+4. **Handle edge cases**: Loading, error, and empty states
+5. **Accessibility first**: Include ARIA attributes and keyboard support
+</Tip>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Forms" icon="file-pen" href="/developer/components/forms">
+    Form components with validation
+  </Card>
+  <Card title="Maps" icon="map" href="/developer/components/maps">
+    Map integration components
+  </Card>
+</CardGroup>

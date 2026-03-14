@@ -1,0 +1,507 @@
+---
+title: 'Payments'
+description: 'Payment methods and transaction management for requesters'
+---
+
+## Overview
+
+Servineo provides a comprehensive payment system for requesters to pay for completed services. The platform supports QR code payments, wallet management, and detailed transaction history.
+
+## Payment Methods
+
+### QR Code Payment
+
+The primary payment method using QR codes for secure transactions.
+
+#### Payment Flow
+
+<Steps>
+  <Step title="Service Completion">
+    Fixer marks the job as completed
+  </Step>
+  <Step title="Payment Intent">
+    System creates a payment intent with amount and details
+  </Step>
+  <Step title="QR Generation">
+    Backend generates a unique QR code for the transaction
+  </Step>
+  <Step title="Scan & Pay">
+    Scan QR with your banking app to complete payment
+  </Step>
+  <Step title="Confirmation">
+    Payment is confirmed and fixer receives funds
+  </Step>
+</Steps>
+
+#### Payment Intent
+
+```typescript
+interface PaymentIntent {
+  _id: string;
+  bookingId: string;
+  providerId: string;
+  amountExpected: number;
+  currency: string;
+  paymentReference: string;
+  status: PaymentStatus;
+  deadlineAt?: string;
+  createdAt?: string;
+}
+
+type PaymentStatus = 
+  | 'pending'       // Awaiting payment
+  | 'under_review'  // Payment received, verifying
+  | 'confirmed'     // Payment confirmed
+  | 'rejected'      // Payment failed or rejected
+  | 'expired';      // Payment deadline passed
+```
+
+#### QR Payment Page
+
+The QR payment interface (`/payment/pay-with-qr`) displays:
+
+**Payment Information:**
+- **Destinatario**: Fixer's account details
+- **Nro de Transacción**: Unique payment reference
+- **Sub Total**: Service cost (97% of total)
+- **Comisión**: Platform fee (3% of total)
+- **Total**: Full amount to pay
+
+**Payment Status:**
+- Current payment state
+- Deadline information
+- Transaction history
+
+```typescript
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
+const payload = {
+  bookingId: 'BOOKING-ID',
+  providerId: 'FIXER-ID',
+  amount: 215,
+  currency: 'BOB'
+};
+
+const res = await fetch(`${BACKEND_URL}/api/payments/intent`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(payload)
+});
+```
+
+<Note>
+QR codes are generated dynamically for each payment and expire after a set time period.
+</Note>
+
+#### QR Display
+
+The QR image is loaded from:
+
+```typescript
+interface PaymentMethod {
+  qrImageUrl?: string;
+  accountDisplay?: string;
+}
+
+// Handles Google Drive URLs
+const toDriveThumb = (url: string) => {
+  const m = url.match(/id=([^&]+)/);
+  return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w512` : url;
+};
+
+// Fallback QR if image fails to load
+const fallbackQR = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent('Servineo QR')}`;
+```
+
+<Warning>
+If the QR code doesn't load properly, the system will attempt to convert Google Drive URLs to thumbnail format or display a fallback QR.
+</Warning>
+
+## Wallet Management
+
+While primarily used by fixers, requesters can view their transaction history.
+
+### Wallet Dashboard
+
+The wallet interface shows:
+
+```typescript
+interface WalletData {
+  balance: number;
+  currency: string;
+}
+
+interface Transaction {
+  _id: string;
+  type: string;        // 'deposit' or 'commission'
+  amount: number;
+  description: string;
+  jobId?: string;
+  createdAt: string;
+}
+```
+
+**Dashboard Components:**
+- **Current Balance**: Total funds available
+- **Recent Transactions**: Last 3 transactions
+- **Quick Actions**: Links to history and top-up
+
+### Transaction History
+
+View all payment transactions:
+
+- **Transaction List**: Chronological list of all payments
+- **Date Filters**: Filter by date range
+- **Type Filters**: Filter by transaction type
+- **Search**: Find specific transactions
+
+```typescript
+interface FilterSettings {
+  fromDate: string;     // YYYY-MM-DD
+  toDate: string;       // YYYY-MM-DD
+  type: string[];       // ['deposit', 'commission']
+}
+```
+
+#### Filtering Transactions
+
+<Steps>
+  <Step title="Open History">
+    Navigate to transaction history page
+  </Step>
+  <Step title="Click Add Filter">
+    Open the filter modal
+  </Step>
+  <Step title="Set Date Range">
+    Select 'from' and 'to' dates (MM/DD/YYYY format)
+  </Step>
+  <Step title="Select Types">
+    Choose transaction types to include
+  </Step>
+  <Step title="Apply Filter">
+    View filtered results
+  </Step>
+</Steps>
+
+#### Date Validation
+
+The filter system validates dates thoroughly:
+
+```typescript
+const validateDateString = (dateStr: string, fieldName: string): string | null => {
+  if (dateStr.length !== 10) {
+    return `La fecha "${fieldName}" esta incompleta. Use formato MM/DD/YYYY`;
+  }
+  
+  const parts = dateStr.split('/');
+  const month = parseInt(parts[0], 10);
+  const day = parseInt(parts[1], 10);
+  const year = parseInt(parts[2], 10);
+  
+  if (!isValidDate(month, day, year)) {
+    if (month === 2 && day > 29) {
+      return `Fecha invalida: Febrero solo tiene hasta 29 dias`;
+    }
+    return `La fecha "${fieldName}" no existe en el calendario`;
+  }
+  
+  return null;
+};
+```
+
+<Info>
+Date filters use MM/DD/YYYY format with automatic slash insertion. You can also use the calendar picker for easier selection.
+</Info>
+
+### Transaction Display
+
+Each transaction shows:
+
+**Visual Indicators:**
+- **Green Icon**: Money received (deposits)
+- **Red Icon**: Money sent (payments, commissions)
+- **Amount**: Formatted in bolivianos with +/- prefix
+- **Date**: Localized date format (DD/MM/YYYY)
+
+```typescript
+const formatCurrency = (value: number) => {
+  return `Bs. ${Math.abs(value).toFixed(2)}`;
+};
+
+// Transaction card
+<div className="bg-white rounded-xl p-4 shadow-sm">
+  <div className={`w-10 h-10 rounded-full ${
+    tx.amount > 0 ? 'bg-green-100' : 'bg-red-100'
+  }`}>
+    {tx.amount > 0 ? <TrendingUp /> : <TrendingDown />}
+  </div>
+  <p className="font-semibold">{tx.description}</p>
+  <p className="text-sm text-gray-500">
+    {new Date(tx.createdAt).toLocaleDateString('es-ES')}
+  </p>
+  <p className={tx.amount > 0 ? 'text-green-600' : 'text-red-600'}>
+    {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
+  </p>
+</div>
+```
+
+## Payment History Client
+
+The client payment history component shows:
+
+### Features
+
+- **Balance Display**: Current wallet balance
+- **Transaction List**: All payment transactions
+- **Filter Options**: Date and type filters
+- **Loading States**: Skeleton screens during data fetch
+- **Error Handling**: Clear error messages
+
+### Data Fetching
+
+```typescript
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
+const fetchHistoryData = async (fixerId: string) => {
+  const res = await fetch(`${BACKEND_URL}/api/fixer/payment-center/${fixerId}`);
+  
+  if (!res.ok) {
+    const errData = await res.json();
+    throw new Error(errData.error || "Error al cargar los datos");
+  }
+  
+  const result = await res.json();
+  
+  if (result.success && result.data) {
+    setWalletData({ balance: result.data.saldoActual });
+    setAllTransactions(result.data.transactions || []);
+  }
+};
+```
+
+### Loading States
+
+```typescript
+if (loading) {
+  return (
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <Loader2 className="animate-spin text-blue-600" size={48} />
+    </div>
+  );
+}
+```
+
+<Tip>
+The system uses optimistic UI updates and loading skeletons to provide a smooth user experience during data fetching.
+</Tip>
+
+## Payment Process
+
+### For Completed Jobs
+
+<Steps>
+  <Step title="Job Completion">
+    Fixer marks job as completed in the system
+  </Step>
+  <Step title="Notification">
+    You receive notification that payment is due
+  </Step>
+  <Step title="Review Details">
+    Check job details and total amount
+  </Step>
+  <Step title="Initiate Payment">
+    Click "Pay Now" to start payment process
+  </Step>
+  <Step title="QR Display">
+    System generates and displays QR code
+  </Step>
+  <Step title="Scan & Pay">
+    Use banking app to scan QR and complete payment
+  </Step>
+  <Step title="Confirmation">
+    Receive payment confirmation and receipt
+  </Step>
+  <Step title="Leave Review">
+    Optionally rate and review the fixer
+  </Step>
+</Steps>
+
+### Payment Breakdown
+
+Typical payment structure:
+
+```typescript
+const calculatePaymentBreakdown = (total: number) => {
+  const commission = Math.round(total * 0.03);  // 3% platform fee
+  const subtotal = total - commission;          // Amount to fixer
+  
+  return {
+    subtotal,
+    commission,
+    total
+  };
+};
+
+// Example:
+// Total: Bs. 215.00
+// Subtotal: Bs. 208.55 (to fixer)
+// Commission: Bs. 6.45 (platform fee)
+```
+
+<Warning>
+All payments include a 3% platform commission. This fee covers transaction processing, platform maintenance, and support services.
+</Warning>
+
+## Invoice and Receipts
+
+After payment completion:
+
+### Invoice Details
+
+Access detailed invoices showing:
+
+```typescript
+interface Invoice {
+  _id: string;
+  transactionId: string;
+  jobId: string;
+  requesterId: string;
+  fixerId: string;
+  amount: number;
+  commission: number;
+  total: number;
+  paymentMethod: string;
+  status: 'pending' | 'paid' | 'refunded';
+  createdAt: string;
+  paidAt?: string;
+}
+```
+
+**Invoice Information:**
+- Transaction reference number
+- Job description
+- Fixer details
+- Payment breakdown
+- Date and time
+- Payment method
+
+### Receipt Download
+
+- **PDF Generation**: Download receipts as PDF
+- **Email Receipt**: Send receipt to your email
+- **Print Option**: Print directly from browser
+
+## Payment Security
+
+### Security Measures
+
+- **Encrypted QR Codes**: Payment information is encrypted
+- **Unique References**: Each payment has a unique reference
+- **Expiration**: QR codes expire after set time
+- **Verification**: Backend verifies all payments
+- **Fraud Detection**: Automated fraud monitoring
+
+<Note>
+Never share your QR code with anyone. Each code is unique to your transaction and should only be used by you.
+</Note>
+
+### Data Protection
+
+- **HTTPS**: All payment data transmitted over secure connections
+- **Tokenization**: Sensitive data is tokenized
+- **PCI Compliance**: Payment processing follows PCI standards
+- **Data Retention**: Transaction data retained per legal requirements
+
+## Troubleshooting
+
+### Common Issues
+
+#### QR Code Won't Load
+
+**Symptoms:**
+- QR code shows error or doesn't display
+- Image placeholder appears
+
+**Solutions:**
+1. Refresh the page
+2. Check internet connection
+3. Clear browser cache
+4. Try different browser
+5. Contact support if issue persists
+
+```typescript
+// QR loading with fallback
+<img
+  src={imgSrc}
+  alt="QR de pago"
+  onError={() => {
+    if (imgSrc.includes('drive.google.com') && !imgSrc.includes('/thumbnail')) {
+      setImgSrc(toDriveThumb(imgSrc));
+    } else {
+      setImgSrc(fallbackQR);
+    }
+  }}
+/>
+```
+
+#### Payment Not Confirming
+
+**Symptoms:**
+- Paid but status still shows pending
+- Payment completed in bank but not in Servineo
+
+**Solutions:**
+1. Wait 5-10 minutes for confirmation
+2. Check payment reference matches
+3. Verify amount is correct
+4. Contact support with reference number
+
+#### Transaction Not in History
+
+**Symptoms:**
+- Recent payment doesn't appear in history
+- Missing transactions in list
+
+**Solutions:**
+1. Refresh the page
+2. Clear date filters
+3. Check transaction type filters
+4. Wait for sync (up to 5 minutes)
+
+<Info>
+If you experience payment issues, note your payment reference number and contact support immediately. Keep your banking app receipt as proof of payment.
+</Info>
+
+## Best Practices
+
+### Before Payment
+
+1. **Verify Amount**: Check total matches agreed price
+2. **Review Details**: Confirm job description and fixer
+3. **Check Balance**: Ensure sufficient funds in bank account
+4. **Save Reference**: Note payment reference before scanning
+
+### During Payment
+
+1. **Scan Carefully**: Ensure QR code is fully visible
+2. **Verify Details**: Check amount in banking app matches
+3. **Complete Promptly**: Don't let QR expire
+4. **Save Receipt**: Keep bank transaction confirmation
+
+### After Payment
+
+1. **Wait for Confirmation**: Allow time for processing
+2. **Check Status**: Verify payment status updates
+3. **Download Receipt**: Save invoice for records
+4. **Leave Review**: Rate the fixer's service
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Job Requests" icon="briefcase" href="/requesters/job-requests">
+    Create job requests that lead to payments
+  </Card>
+  <Card title="Appointments" icon="calendar" href="/requesters/appointments">
+    Schedule appointments for services
+  </Card>
+</CardGroup>

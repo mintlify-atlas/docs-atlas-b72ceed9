@@ -1,80 +1,345 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: 'Quick Start Guide'
+description: 'Get started with Servineo and complete your first service request in minutes'
 ---
 
-## Get started in three steps
+Welcome to Servineo! This guide will walk you through creating an account and completing your first service request or offer. Whether you need home repairs or want to offer professional services, you'll be up and running in no time.
 
-Get your documentation site running locally and make your first customization.
+## What is Servineo?
 
-### Step 1: Set up your local environment
+Servineo is a platform that connects service requesters with professional fixers for home repairs and maintenance. The platform supports two user roles:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+- **Requesters**: Find and hire professionals for home services
+- **Fixers**: Offer professional services and connect with clients
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  The platform uses role-based access, so your experience will be tailored based on whether you're a requester or a fixer.
 </Note>
+
+## Getting Started as a Requester
+
+<Steps>
+  <Step title="Create Your Account">
+    Navigate to the sign-up page and create your account. You can register using:
+    
+    - Email and password
+    - Google authentication
+    - GitHub authentication
+    - Discord authentication
+    
+    ```typescript
+    // User interface structure
+    interface IUser {
+      name: string;
+      email: string;
+      role: 'requester' | 'fixer' | 'admin';
+      telefono?: string;
+      ubicacion?: {
+        lat?: number;
+        lng?: number;
+        direccion?: string;
+      };
+    }
+    ```
+    
+    <Info>
+      You'll need to complete ReCAPTCHA verification during registration for security.
+    </Info>
+  </Step>
+
+  <Step title="Complete Your Profile">
+    After signing up, add your:
+    - Phone number (required for service coordination)
+    - Location information (helps match you with nearby fixers)
+    - Profile photo (optional, builds trust)
+    
+    Your location is critical for finding the best fixers in your area and getting accurate service quotes.
+  </Step>
+
+  <Step title="Browse Available Services">
+    Explore the services offered on the platform. Servineo supports a wide range of home services:
+    
+    <CardGroup cols={3}>
+      <Card title="Plumbing" icon="pipe">
+        Water systems, repairs, installations
+      </Card>
+      <Card title="Electrical" icon="bolt">
+        Wiring, installations, repairs
+      </Card>
+      <Card title="Carpentry" icon="hammer">
+        Furniture, installations, repairs
+      </Card>
+      <Card title="Painting" icon="paintbrush">
+        Interior and exterior painting
+      </Card>
+      <Card title="Gardening" icon="leaf">
+        Landscaping, maintenance, design
+      </Card>
+      <Card title="Cleaning" icon="broom">
+        Home and office cleaning services
+      </Card>
+    </CardGroup>
+    
+    You can search for fixers by:
+    - Service type
+    - Location (using the interactive map)
+    - Rating and reviews
+    - Price range
+  </Step>
+
+  <Step title="Submit Your First Service Request">
+    When you find a fixer or service you need:
+    
+    1. Click **"Request Service"** on the fixer's profile or service offer
+    2. Fill out the job request form:
+    
+    ```typescript
+    interface CreateJobRequestPayload {
+      title: string;              // Brief description of work
+      description: string;         // Detailed requirements
+      location: {
+        type: 'Point';
+        coordinates: [string, string];  // [longitude, latitude]
+      };
+      startTime: string;          // When work should begin
+      endTime: string;            // Estimated completion
+      price: string | number;     // Your budget or agreed price
+      fixerId: string;            // Selected professional
+      requesterId: string;        // Your user ID
+    }
+    ```
+    
+    3. Specify the job details:
+       - **Job Motive**: What needs to be fixed or installed
+       - **Description**: Provide details about the work
+       - **Location**: Confirm or modify your location
+       - **Time Window**: Start and end times
+       - **Suggested Rate**: Your budget for the job
+    
+    4. Submit the request
+    
+    <Warning>
+      Make sure your location and time availability are accurate. Fixers rely on this information to accept and schedule jobs.
+    </Warning>
+  </Step>
+
+  <Step title="Track Your Request">
+    After submitting, you can:
+    - View request status (pending, accepted, in_progress, completed)
+    - Communicate with your fixer
+    - Track appointments in your calendar
+    - Manage payments through the platform
+    
+    Job statuses include:
+    - `pending`: Waiting for fixer acceptance
+    - `accepted`: Fixer has confirmed
+    - `in_progress`: Work is underway
+    - `completed`: Job finished
+    - `paid`: Payment processed
+  </Step>
+
+  <Step title="Rate Your Experience">
+    After job completion:
+    - Leave a rating (1-5 stars)
+    - Write a review
+    - Help other users make informed decisions
+    
+    Your feedback helps maintain quality standards across the platform.
+  </Step>
+</Steps>
+
+## Getting Started as a Fixer
+
+<Steps>
+  <Step title="Sign Up as a Requester First">
+    All fixers start as requesters. Create your basic account following the steps above.
+    
+    <Note>
+      The platform uses a conversion process to upgrade requester accounts to fixer status.
+    </Note>
+  </Step>
+
+  <Step title="Convert to Fixer Account">
+    Navigate to the **"Become a Fixer"** page (`/become-fixer`) and complete the fixer registration wizard:
+    
+    ```typescript
+    // Fixer registration form fields
+    interface InitialRegistrationData {
+      name: string;        // Full name (max 30 chars, letters only)
+      email: string;       // Contact email
+      phone: string;       // Phone number with country code
+    }
+    ```
+    
+    The system validates:
+    - Name format (letters and spaces only, max 30 characters)
+    - Valid email address
+    - Phone number format
+  </Step>
+
+  <Step title="Complete Fixer Profile">
+    Add your professional information:
+    - **Services**: Select the services you offer (plumbing, electrical, etc.)
+    - **Work Location**: Set your service area with coordinates
+    - **Experience**: Describe your professional background
+    - **Vehicle**: Specify if you have transportation
+    - **Payment Methods**: Cash, QR codes, credit cards
+    - **CI/ID**: Identification for verification
+    
+    ```typescript
+    interface IUser {
+      servicios?: string[];          // Services offered
+      workLocation?: {
+        lat?: number;
+        lng?: number;
+        direccion?: string;
+      };
+      experience?: {
+        descripcion?: string;
+      };
+      vehiculo?: {
+        hasVehiculo?: boolean;
+        tipoVehiculo?: string;
+      };
+      metodoPago?: {
+        hasEfectivo?: boolean;
+        qr?: boolean;
+        tarjetaCredito?: boolean;
+      };
+    }
+    ```
+  </Step>
+
+  <Step title="Create Your First Job Offer">
+    Post services you want to offer:
+    
+    1. Go to your fixer dashboard
+    2. Click **"Create Job Offer"**
+    3. Fill in the details:
+       - Service type
+       - Description
+       - Pricing
+       - Availability
+       - Service area
+    
+    ```typescript
+    interface IJobOffer {
+      title: string;
+      description: string;
+      price: number;
+      fixerId: string;
+      serviceType: string;
+      isActive: boolean;  // Toggle visibility
+    }
+    ```
+  </Step>
+
+  <Step title="Manage Incoming Requests">
+    When requesters find you:
+    - Review job requests in your dashboard
+    - Accept or decline based on your availability
+    - Communicate job details
+    - Schedule appointments
+    - Track job progress
+  </Step>
+
+  <Step title="Get Paid">
+    After completing jobs:
+    - Use the payment center (`/payment/centro-de-pagos`)
+    - Access your fixer wallet (`/payment/FixerWallet`)
+    - Track payment history
+    - Manage invoices
+    - Add bank account details for transfers
+  </Step>
+</Steps>
+
+## Platform Navigation
+
+### For Requesters
+
+<CardGroup cols={2}>
+  <Card title="Finding Fixers" icon="magnifying-glass" href="/requesters/finding-fixers">
+    Advanced search with filters for service type, location, price, and ratings
+  </Card>
+  <Card title="Job Requests" icon="list" href="/requesters/job-requests">
+    View and manage your service requests
+  </Card>
+  <Card title="Appointments" icon="calendar" href="/requesters/appointments">
+    Track scheduled appointments
+  </Card>
+  <Card title="Payments" icon="credit-card" href="/requesters/payments">
+    Payment methods and transaction management
+  </Card>
+</CardGroup>
+
+### For Fixers
+
+<CardGroup cols={2}>
+  <Card title="Dashboard" icon="gauge" href="/fixers/dashboard">
+    Overview of your jobs, earnings, and statistics
+  </Card>
+  <Card title="Job Offers" icon="briefcase" href="/fixers/job-offers">
+    Manage active and completed jobs
+  </Card>
+  <Card title="Calendar" icon="clock" href="/fixers/calendar">
+    Schedule and track appointments
+  </Card>
+  <Card title="Wallet" icon="wallet" href="/fixers/wallet">
+    Payment center and wallet management
+  </Card>
+</CardGroup>
+
+## Authentication & Security
+
+Servineo uses secure authentication with multiple options:
+
+```typescript
+// Authentication providers supported
+interface AuthProviders {
+  provider: 'email' | 'google' | 'github' | 'discord';
+  providerId: string;
+  password?: string;  // Only for email auth
+}
+```
+
+<Info>
+  All authentication flows are protected with ReCAPTCHA to prevent automated abuse.
+</Info>
+
+### Security Features
+
+- Two-factor authentication available (`/requesterEdit/Seguridad/Authenticator`)
+- Secure session management
+- Password reset flow (`/login/forgotpass`)
+- Account linking for multiple providers
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Explore Features" icon="compass" href="/features">
+    Learn about all platform capabilities
+  </Card>
+  <Card title="For Requesters" icon="user" href="/requesters/overview">
+    Complete guide for service requesters
+  </Card>
+  <Card title="For Fixers" icon="wrench" href="/fixers/overview">
+    Complete guide for service providers
+  </Card>
+  <Card title="Developer Docs" icon="code" href="/developer/overview">
+    Technical documentation and API reference
+  </Card>
+</CardGroup>
+
+## Tips for Success
+
+<Tip>
+  **For Requesters**: Provide detailed job descriptions and be specific about your requirements. Clear communication leads to better results.
+</Tip>
+
+<Tip>
+  **For Fixers**: Keep your profile updated, respond promptly to requests, and maintain high-quality work to build your reputation.
+</Tip>
+
+<Warning>
+  Always verify the details of your appointments and confirm locations before starting work. Use the platform's communication tools for all coordination.
+</Warning>

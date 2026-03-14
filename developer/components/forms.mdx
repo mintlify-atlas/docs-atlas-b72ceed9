@@ -1,0 +1,586 @@
+---
+title: 'Form Components'
+description: 'Form handling, validation, and input components with React Hook Form and Zod'
+icon: 'file-pen'
+---
+
+## Overview
+
+Servineo's form components provide comprehensive form handling with integrated validation using **React Hook Form** and **Zod** schemas. These components handle complex workflows including appointment scheduling, job offer creation, and location selection.
+
+## Form Architecture
+
+All form components follow these patterns:
+
+- **React Hook Form**: State management and validation
+- **Zod Schemas**: Type-safe validation rules
+- **Controlled Components**: Full control over form state
+- **Error Handling**: User-friendly error messages
+- **Accessibility**: ARIA labels and keyboard navigation
+
+---
+
+## JobOfferForm
+
+Comprehensive form for creating and editing job offers with service selection, pricing, and photo uploads.
+
+### Props
+
+<ParamField path="onSubmit" type="(data: JobOfferFormData) => void" required>
+  Callback function called when form is successfully submitted
+</ParamField>
+
+<ParamField path="onCancel" type="() => void" required>
+  Callback function called when user cancels the form
+</ParamField>
+
+<ParamField path="defaultValues" type="Partial<JobOffer> | Partial<JobOfferFormData>">
+  Initial form values for editing existing offers
+</ParamField>
+
+<ParamField path="submitButtonText" type="string" default="'Publicar Oferta'">
+  Custom text for submit button
+</ParamField>
+
+### Form Fields
+
+<ParamField path="description" type="string" required>
+  Service description (max 100 characters)
+</ParamField>
+
+<ParamField path="city" type="string" required>
+  City selection (Cochabamba, La Paz, Santa Cruz, El Alto)
+</ParamField>
+
+<ParamField path="services" type="Array<{id: string, value: string}>" required>
+  Selected services from available options
+</ParamField>
+
+<ParamField path="price" type="number" required>
+  Service price in Bolivianos (max 10 digits)
+</ParamField>
+
+### Usage
+
+<CodeGroup>
+```tsx Create New Job Offer
+import JobOfferForm from '@/Components/Job-offers/Job-offer-form';
+import { useState } from 'react';
+
+export default function CreateJobOffer() {
+  const [showForm, setShowForm] = useState(false);
+
+  const handleSubmit = async (data) => {
+    console.log('Job offer data:', data);
+    // API call to create job offer
+    await fetch('/api/job-offers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    setShowForm(false);
+  };
+
+  return (
+    <>
+      <button onClick={() => setShowForm(true)}>
+        Create Job Offer
+      </button>
+
+      {showForm && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50">
+          <JobOfferForm
+            onSubmit={handleSubmit}
+            onCancel={() => setShowForm(false)}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+```
+
+```tsx Edit Existing Job Offer
+import JobOfferForm from '@/Components/Job-offers/Job-offer-form';
+
+export default function EditJobOffer({ existingOffer }) {
+  const handleUpdate = async (data) => {
+    await fetch(`/api/job-offers/${existingOffer.id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  };
+
+  return (
+    <JobOfferForm
+      defaultValues={{
+        description: existingOffer.description,
+        city: existingOffer.city,
+        services: existingOffer.services,
+        price: existingOffer.price,
+      }}
+      onSubmit={handleUpdate}
+      onCancel={() => router.back()}
+      submitButtonText="Actualizar Oferta"
+    />
+  );
+}
+```
+</CodeGroup>
+
+### Validation Schema
+
+The form uses Zod for validation:
+
+```tsx Job Offer Schema
+import { z } from 'zod';
+
+export const jobOfferSchema = z.object({
+  description: z
+    .string()
+    .min(1, 'La descripción es requerida')
+    .max(100, 'Máximo 100 caracteres'),
+  
+  city: z.string().min(1, 'Seleccione una ciudad'),
+  
+  services: z
+    .array(z.object({ id: z.string(), value: z.string() }))
+    .min(1, 'Seleccione al menos un servicio'),
+  
+  price: z
+    .number()
+    .min(0, 'El precio debe ser positivo')
+    .max(9999999999, 'Precio máximo excedido'),
+});
+
+export type JobOfferFormData = z.infer<typeof jobOfferSchema>;
+```
+
+### Features
+
+- **Service Selection**: Multi-select button interface
+- **Character Counter**: Real-time character count display
+- **Validation Feedback**: Inline error messages
+- **Responsive Layout**: Mobile-optimized design
+- **Scrollable Content**: Max height with overflow scroll
+
+<Note>
+The JobOfferForm automatically normalizes services between string[] and object[] formats for backward compatibility.
+</Note>
+
+---
+
+## AppointmentForm
+
+Advanced appointment scheduling form with dual modality support (virtual/presential), location selection, and comprehensive validation.
+
+### Props
+
+<ParamField path="fixerId" type="string" required>
+  ID of the fixer for this appointment
+</ParamField>
+
+<ParamField path="requesterId" type="string" required>
+  ID of the requester creating the appointment
+</ParamField>
+
+### Form Fields
+
+<ParamField path="client" type="string" required>
+  Client name (letters only, max 50 characters)
+</ParamField>
+
+<ParamField path="contact" type="string" required>
+  Phone number (format: 7XXXXXXX or 6XXXXXXX)
+</ParamField>
+
+<ParamField path="description" type="string" required>
+  Work description (max 300 characters)
+</ParamField>
+
+<ParamField path="modality" type="'virtual' | 'presential'" required>
+  Appointment type
+</ParamField>
+
+<ParamField path="meetingLink" type="string">
+  Required for virtual appointments (Google Meet or Zoom URL)
+</ParamField>
+
+<ParamField path="location" type="{lat: number, lon: number, address: string}">
+  Required for presential appointments
+</ParamField>
+
+### Ref Methods
+
+<ParamField path="open" type="(datetimeISO: string) => void">
+  Opens the form with specified date/time
+</ParamField>
+
+<ParamField path="close" type="() => void">
+  Closes the form and resets state
+</ParamField>
+
+### Usage
+
+<CodeGroup>
+```tsx Basic Appointment Form
+import AppointmentForm, { AppointmentFormHandle } from '@/Components/appointments/forms/AppointmentForm';
+import { useRef } from 'react';
+
+export default function CalendarView() {
+  const formRef = useRef<AppointmentFormHandle>(null);
+
+  const handleTimeSlotClick = (datetime: string) => {
+    formRef.current?.open(datetime);
+  };
+
+  return (
+    <>
+      <div className="calendar">
+        <button onClick={() => handleTimeSlotClick('2024-03-20T14:00:00Z')}>
+          2:00 PM - Available
+        </button>
+      </div>
+
+      <AppointmentForm
+        ref={formRef}
+        fixerId="fixer-123"
+        requesterId="req-456"
+      />
+    </>
+  );
+}
+```
+
+```tsx With Success Callback
+import AppointmentForm from '@/Components/appointments/forms/AppointmentForm';
+import { useRef, useEffect } from 'react';
+
+export default function BookingFlow({ selectedTime }) {
+  const formRef = useRef(null);
+
+  useEffect(() => {
+    if (selectedTime) {
+      formRef.current?.open(selectedTime);
+    }
+  }, [selectedTime]);
+
+  return (
+    <AppointmentForm
+      ref={formRef}
+      fixerId="fixer-123"
+      requesterId="req-456"
+    />
+  );
+}
+```
+</CodeGroup>
+
+### Validation Schemas
+
+The form uses discriminated unions for modality-specific validation:
+
+<CodeGroup>
+```tsx Virtual Appointment Schema
+const virtualSchema = z.object({
+  modality: z.literal('virtual'),
+  client: z
+    .string()
+    .regex(/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/, 'Nombre inválido')
+    .max(50),
+  contact: z
+    .string()
+    .regex(/^[67]\d{7}$/, 'Número inválido'),
+  description: z
+    .string()
+    .max(300, 'Máximo 300 caracteres'),
+  meetingLink: z
+    .string()
+    .regex(
+      /^(https?:\/\/)?(meet\.google\.com|zoom\.us)\/[^\s]+$/,
+      'URL de Meet o Zoom inválida'
+    ),
+});
+```
+
+```tsx Presential Appointment Schema
+const presentialSchema = z.object({
+  modality: z.literal('presential'),
+  client: z.string().regex(/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/).max(50),
+  contact: z.string().regex(/^[67]\d{7}$/),
+  description: z.string().max(300),
+  location: z
+    .object({
+      lat: z.number(),
+      lon: z.number(),
+      address: z.string().nonempty(),
+    })
+    .refine(val => val !== null, {
+      message: 'Seleccione una ubicación'
+    }),
+});
+```
+
+```tsx Combined Schema
+const appointmentSchema = z.discriminatedUnion('modality', [
+  virtualSchema,
+  presentialSchema,
+]);
+```
+</CodeGroup>
+
+### Features
+
+- **Dual Modality**: Virtual (online) and Presential (in-person)
+- **Interactive Map**: Embedded LocationModal for address selection
+- **Real-time Validation**: Immediate feedback on input
+- **Success Modal**: Confirmation with appointment details
+- **Keyboard Shortcuts**: ESC to close, Enter to submit
+- **Auto-focus**: First field focused on open
+- **Loading States**: Disabled submit during API calls
+
+<Tip>
+The AppointmentForm automatically handles timezone conversion, subtracting 4 hours for backend compatibility.
+</Tip>
+
+---
+
+## LocationModal
+
+Interactive map-based location selection using Leaflet and OpenStreetMap.
+
+### Props
+
+<ParamField path="open" type="boolean" required>
+  Controls modal visibility
+</ParamField>
+
+<ParamField path="onClose" type="() => void" required>
+  Called when modal is closed
+</ParamField>
+
+<ParamField path="onConfirm" type="(location: {lat: number, lon: number, address: string}) => void" required>
+  Called when location is confirmed
+</ParamField>
+
+<ParamField path="initialCoords" type="{lat: number, lon: number} | null">
+  Initial map position and marker
+</ParamField>
+
+### Usage
+
+```tsx Location Selection
+import LocationModal from '@/Components/appointments/forms/LocationModal';
+import { useState } from 'react';
+
+export default function AddressForm() {
+  const [showMap, setShowMap] = useState(false);
+  const [location, setLocation] = useState(null);
+
+  const handleLocationSelect = (locationData) => {
+    setLocation(locationData);
+    console.log('Selected:', locationData);
+    // { lat: -17.39, lon: -66.15, address: "Av. Heroínas..." }
+    setShowMap(false);
+  };
+
+  return (
+    <>
+      <button onClick={() => setShowMap(true)}>
+        {location ? 'Change Location' : 'Select Location'}
+      </button>
+      
+      {location && <p>📍 {location.address}</p>}
+
+      <LocationModal
+        open={showMap}
+        onClose={() => setShowMap(false)}
+        onConfirm={handleLocationSelect}
+        initialCoords={location}
+      />
+    </>
+  );
+}
+```
+
+### Features
+
+- **Click to Place**: Click map to set marker
+- **Reverse Geocoding**: Converts coordinates to address
+- **Default Location**: Centers on Cochabamba, Bolivia
+- **Marker Drag**: Visual feedback for selection
+
+<Note>
+LocationModal requires the Leaflet CSS to be imported in your application:
+```tsx
+import 'leaflet/dist/leaflet.css';
+```
+</Note>
+
+---
+
+## Form Validation Patterns
+
+### Common Validation Rules
+
+<CodeGroup>
+```tsx String Validation
+import { z } from 'zod';
+
+// Required string
+z.string().min(1, 'Este campo es requerido')
+
+// Max length
+z.string().max(100, 'Máximo 100 caracteres')
+
+// Pattern matching
+z.string().regex(/^[A-Za-z]+$/, 'Solo letras')
+
+// Email
+z.string().email('Email inválido')
+
+// URL
+z.string().url('URL inválida')
+```
+
+```tsx Number Validation
+import { z } from 'zod';
+
+// Positive number
+z.number().min(0, 'Debe ser positivo')
+
+// Range
+z.number().min(1).max(100)
+
+// Integer only
+z.number().int('Debe ser entero')
+```
+
+```tsx Array Validation
+import { z } from 'zod';
+
+// Non-empty array
+z.array(z.string()).min(1, 'Seleccione al menos uno')
+
+// Max items
+z.array(z.number()).max(10, 'Máximo 10 items')
+```
+
+```tsx Object Validation
+import { z } from 'zod';
+
+z.object({
+  name: z.string(),
+  age: z.number(),
+  email: z.string().email(),
+})
+```
+</CodeGroup>
+
+### React Hook Form Integration
+
+```tsx Form Setup
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const schema = z.object({
+  username: z.string().min(3),
+  email: z.string().email(),
+});
+
+type FormData = z.infer<typeof schema>;
+
+export default function MyForm() {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      username: '',
+      email: '',
+    },
+  });
+
+  const onSubmit = (data: FormData) => {
+    console.log(data);
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <input {...register('username')} />
+      {errors.username && <span>{errors.username.message}</span>}
+      
+      <input {...register('email')} />
+      {errors.email && <span>{errors.email.message}</span>}
+      
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+---
+
+## Error Handling
+
+### Display Error Messages
+
+```tsx Error Display Pattern
+{errors.fieldName && (
+  <p className="text-sm text-red-600 mt-1">
+    {errors.fieldName.message}
+  </p>
+)}
+```
+
+### Field-Level Errors
+
+```tsx Input with Error
+<input
+  {...register('email')}
+  className={`border rounded px-3 py-2 ${
+    errors.email ? 'border-red-500' : 'border-gray-300'
+  }`}
+/>
+```
+
+### Form-Level Errors
+
+```tsx General Error
+{errors.general && (
+  <div className="bg-red-50 border border-red-200 rounded p-3">
+    <p className="text-red-800">{errors.general.message}</p>
+  </div>
+)}
+```
+
+---
+
+## Best Practices
+
+<Tip>
+**Form Development Guidelines**:
+
+1. **Always validate**: Use Zod schemas for all forms
+2. **User-friendly errors**: Provide clear, actionable error messages
+3. **Loading states**: Disable submit button during API calls
+4. **Reset on success**: Clear form after successful submission
+5. **Escape handling**: Allow ESC key to close modal forms
+6. **Auto-focus**: Focus first field on form open
+7. **Preserve data**: Warn before closing unsaved changes
+</Tip>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Common Components" icon="layer-group" href="/developer/components/common">
+    Input, Button, and other form primitives
+  </Card>
+  <Card title="Maps" icon="map" href="/developer/components/maps">
+    MapView component used in LocationModal
+  </Card>
+</CardGroup>

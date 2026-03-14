@@ -1,0 +1,525 @@
+---
+title: 'Appointments API'
+description: 'Appointment scheduling, tracking, and management'
+---
+
+## Overview
+
+The Appointments API handles scheduling, tracking, and analytics for appointments between fixers and requesters. It includes admin endpoints for monitoring appointments across the platform.
+
+## Endpoints
+
+### Get Appointments by Fixer
+
+Retrieve all appointments for a specific fixer.
+
+```typescript
+GET /api/appointments/fixer/{fixerId}
+```
+
+**Usage:**
+
+```typescript
+import { getAppointmentsByFixerId } from '@/services/appointments';
+
+const appointments = await getAppointmentsByFixerId(fixerId);
+```
+
+**Path Parameters:**
+
+<ParamField path="fixerId" type="string" required>
+  The fixer's user ID
+</ParamField>
+
+**Response:**
+
+<ResponseField name="_id" type="string">
+  Appointment unique identifier
+</ResponseField>
+
+<ResponseField name="id_fixer" type="string">
+  Fixer's user ID
+</ResponseField>
+
+<ResponseField name="id_requester" type="string">
+  Requester's user ID
+</ResponseField>
+
+<ResponseField name="current_requester_name" type="string">
+  Requester's display name
+</ResponseField>
+
+<ResponseField name="current_requester_phone" type="string">
+  Requester's contact phone
+</ResponseField>
+
+<ResponseField name="appointment_type" type="string">
+  Type of service appointment
+</ResponseField>
+
+<ResponseField name="appointment_description" type="string">
+  Detailed description of the appointment
+</ResponseField>
+
+<ResponseField name="schedule_state" type="string">
+  Current state: `booked`, `cancelled`, `completed`, `rescheduled`
+</ResponseField>
+
+<ResponseField name="selected_date" type="object">
+  Date object with `$date` field (ISO 8601 string)
+</ResponseField>
+
+<ResponseField name="starting_time" type="object">
+  Start time with `$date` field
+</ResponseField>
+
+<ResponseField name="finishing_time" type="object">
+  End time with `$date` field
+</ResponseField>
+
+<ResponseField name="display_name_location" type="string">
+  Human-readable location name
+</ResponseField>
+
+<ResponseField name="lat" type="string | null">
+  Latitude coordinate
+</ResponseField>
+
+<ResponseField name="lon" type="string | null">
+  Longitude coordinate
+</ResponseField>
+
+<ResponseField name="cancelled_fixer" type="boolean">
+  Whether the fixer cancelled the appointment
+</ResponseField>
+
+<ResponseField name="reprogram_reason" type="string">
+  Reason for rescheduling (if applicable)
+</ResponseField>
+
+<ResponseField name="link_id" type="string">
+  Related link or reference ID
+</ResponseField>
+
+<CodeGroup>
+```typescript Response Type
+interface Appointment {
+  _id: string;
+  id_fixer: string;
+  id_requester: string;
+  selected_date: { $date: string };
+  current_requester_name: string;
+  appointment_type: string;
+  appointment_description: string;
+  link_id: string;
+  current_requester_phone: string;
+  starting_time: { $date: string };
+  finishing_time: { $date: string };
+  schedule_state: string;
+  display_name_location: string;
+  lat: string | null;
+  lon: string | null;
+  cancelled_fixer: boolean;
+  reprogram_reason: string;
+  createdAt: { $date: string };
+  updatedAt: { $date: string };
+  __v: number;
+}
+```
+
+```json Example Response
+[
+  {
+    "_id": "507f1f77bcf86cd799439011",
+    "id_fixer": "507f1f77bcf86cd799439012",
+    "id_requester": "507f1f77bcf86cd799439013",
+    "current_requester_name": "Jane Smith",
+    "current_requester_phone": "+598 99 987 654",
+    "appointment_type": "Plumbing Repair",
+    "appointment_description": "Fix leaking kitchen faucet",
+    "schedule_state": "booked",
+    "selected_date": { "$date": "2024-01-20T00:00:00Z" },
+    "starting_time": { "$date": "2024-01-20T10:00:00Z" },
+    "finishing_time": { "$date": "2024-01-20T12:00:00Z" },
+    "display_name_location": "Av. 18 de Julio 1234, Montevideo",
+    "lat": "-34.9011",
+    "lon": "-56.1645",
+    "cancelled_fixer": false,
+    "reprogram_reason": "",
+    "link_id": "abc123",
+    "createdAt": { "$date": "2024-01-15T10:30:00Z" },
+    "updatedAt": { "$date": "2024-01-15T10:30:00Z" },
+    "__v": 0
+  }
+]
+```
+</CodeGroup>
+
+## Admin Tracking Endpoints
+
+### Get Map Locations
+
+Retrieve all active appointment locations for map visualization.
+
+```typescript
+GET /api/admin/map-locations
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useGetMapLocationsQuery } from '@/app/redux/services/trackingAppointmentsApi';
+
+const { data: locations, isLoading } = useGetMapLocationsQuery();
+```
+
+**Response:**
+
+<ResponseField name="_id" type="string">
+  Location identifier
+</ResponseField>
+
+<ResponseField name="lat" type="string">
+  Latitude coordinate
+</ResponseField>
+
+<ResponseField name="lon" type="string">
+  Longitude coordinate
+</ResponseField>
+
+<ResponseField name="schedule_state" type="string">
+  Appointment state: `booked` or `cancelled`
+</ResponseField>
+
+<ResponseField name="fixerName" type="string">
+  Name of the fixer
+</ResponseField>
+
+<ResponseField name="current_requester_name" type="string">
+  Name of the requester
+</ResponseField>
+
+<ResponseField name="starting_time" type="string">
+  ISO 8601 start time
+</ResponseField>
+
+<CodeGroup>
+```typescript Response Type
+interface MapLocation {
+  _id: string;
+  lat: string;
+  lon: string;
+  schedule_state: 'booked' | 'cancelled';
+  fixerName: string;
+  current_requester_name: string;
+  starting_time: string;
+}
+```
+
+```json Example Response
+[
+  {
+    "_id": "507f1f77bcf86cd799439011",
+    "lat": "-34.9011",
+    "lon": "-56.1645",
+    "schedule_state": "booked",
+    "fixerName": "John Doe",
+    "current_requester_name": "Jane Smith",
+    "starting_time": "2024-01-20T10:00:00Z"
+  },
+  {
+    "_id": "507f1f77bcf86cd799439014",
+    "lat": "-34.8515",
+    "lon": "-56.1882",
+    "schedule_state": "booked",
+    "fixerName": "Carlos Rodriguez",
+    "current_requester_name": "Maria Garcia",
+    "starting_time": "2024-01-20T14:00:00Z"
+  }
+]
+```
+</CodeGroup>
+
+### Get Tracking Metrics
+
+Retrieve appointment metrics with optional date filtering.
+
+```typescript
+GET /api/admin/metrics
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useGetTrackingMetricsQuery } from '@/app/redux/services/trackingAppointmentsApi';
+
+// Without filters
+const { data: metrics } = useGetTrackingMetricsQuery({});
+
+// With date filters
+const { data: filteredMetrics } = useGetTrackingMetricsQuery({
+  startDate: '2024-01-01',
+  endDate: '2024-01-31'
+});
+```
+
+**Query Parameters:**
+
+<ParamField query="startDate" type="string">
+  Start date for filtering (ISO 8601 format: YYYY-MM-DD)
+</ParamField>
+
+<ParamField query="endDate" type="string">
+  End date for filtering (ISO 8601 format: YYYY-MM-DD)
+</ParamField>
+
+**Response:**
+
+<ResponseField name="total" type="number">
+  Total number of appointments
+</ResponseField>
+
+<ResponseField name="active" type="number">
+  Number of active (booked) appointments
+</ResponseField>
+
+<ResponseField name="cancelled" type="number">
+  Number of cancelled appointments
+</ResponseField>
+
+<CodeGroup>
+```typescript Response Type
+interface TrackingMetrics {
+  total: number;
+  active: number;
+  cancelled: number;
+}
+```
+
+```json Example Response
+{
+  "total": 150,
+  "active": 120,
+  "cancelled": 30
+}
+```
+</CodeGroup>
+
+### Get Fixer Statistics
+
+Retrieve performance statistics for all fixers.
+
+```typescript
+GET /api/admin/fixer-stats
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useGetFixerStatsQuery } from '@/app/redux/services/trackingAppointmentsApi';
+
+const { data: stats } = useGetFixerStatsQuery();
+```
+
+**Response:**
+
+<ResponseField name="id" type="string">
+  Fixer's user ID
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Fixer's name
+</ResponseField>
+
+<ResponseField name="total" type="number">
+  Total appointments
+</ResponseField>
+
+<ResponseField name="active" type="number">
+  Active appointments
+</ResponseField>
+
+<ResponseField name="cancelled" type="number">
+  Cancelled appointments
+</ResponseField>
+
+<ResponseField name="rescheduled" type="number">
+  Rescheduled appointments
+</ResponseField>
+
+<ResponseField name="rate" type="string">
+  Success rate percentage
+</ResponseField>
+
+<CodeGroup>
+```typescript Response Type
+interface FixerStat {
+  id: string;
+  name: string;
+  total: number;
+  active: number;
+  cancelled: number;
+  rescheduled: number;
+  rate: string;
+}
+```
+
+```json Example Response
+[
+  {
+    "id": "507f1f77bcf86cd799439012",
+    "name": "John Doe",
+    "total": 45,
+    "active": 38,
+    "cancelled": 5,
+    "rescheduled": 2,
+    "rate": "84.4%"
+  },
+  {
+    "id": "507f1f77bcf86cd799439015",
+    "name": "Carlos Rodriguez",
+    "total": 62,
+    "active": 55,
+    "cancelled": 4,
+    "rescheduled": 3,
+    "rate": "88.7%"
+  }
+]
+```
+</CodeGroup>
+
+## Appointment States
+
+Appointments can have the following states:
+
+### Schedule States
+
+<ParamField path="booked" type="state">
+  Appointment is confirmed and scheduled
+</ParamField>
+
+<ParamField path="cancelled" type="state">
+  Appointment has been cancelled by either party
+</ParamField>
+
+<ParamField path="completed" type="state">
+  Service has been completed
+</ParamField>
+
+<ParamField path="rescheduled" type="state">
+  Appointment has been rescheduled to a new time
+</ParamField>
+
+## Working with Dates
+
+Appointment dates use MongoDB's extended JSON format:
+
+```typescript
+interface AppointmentTime {
+  $date: string; // ISO 8601 format
+}
+```
+
+**Parsing dates:**
+
+```typescript
+const appointment = await getAppointmentsByFixerId(fixerId);
+
+appointment.forEach(apt => {
+  const startDate = new Date(apt.starting_time.$date);
+  const endDate = new Date(apt.finishing_time.$date);
+  
+  console.log(`Appointment from ${startDate.toLocaleString()} to ${endDate.toLocaleString()}`);
+});
+```
+
+## Location Data
+
+Appointments include location information in two formats:
+
+1. **Coordinates**: Separate `lat` and `lon` fields (strings)
+2. **Display Name**: Human-readable address in `display_name_location`
+
+```typescript
+const { lat, lon, display_name_location } = appointment;
+
+if (lat && lon) {
+  // Use coordinates for map display
+  const position = {
+    lat: parseFloat(lat),
+    lng: parseFloat(lon)
+  };
+}
+
+// Use display name for user-friendly address
+console.log(`Location: ${display_name_location}`);
+```
+
+## TypeScript Interfaces
+
+```typescript ~/workspace/source/src/services/appointments.ts
+export interface Appointment {
+  _id: string;
+  id_fixer: string;
+  id_requester: string;
+  selected_date: { $date: string };
+  current_requester_name: string;
+  appointment_type: string;
+  appointment_description: string;
+  link_id: string;
+  current_requester_phone: string;
+  starting_time: { $date: string };
+  finishing_time: { $date: string };
+  schedule_state: string;
+  display_name_location: string;
+  lat: string | null;
+  lon: string | null;
+  cancelled_fixer: boolean;
+  reprogram_reason: string;
+  createdAt: { $date: string };
+  updatedAt: { $date: string };
+  __v: number;
+}
+```
+
+```typescript ~/workspace/source/src/app/redux/services/trackingAppointmentsApi.ts
+export interface MapLocation {
+  _id: string;
+  lat: string;
+  lon: string;
+  schedule_state: 'booked' | 'cancelled';
+  fixerName: string;
+  current_requester_name: string;
+  starting_time: string;
+}
+
+export interface TrackingMetrics {
+  total: number;
+  active: number;
+  cancelled: number;
+}
+
+export interface FixerStat {
+  id: string;
+  name: string;
+  total: number;
+  active: number;
+  cancelled: number;
+  rescheduled: number;
+  rate: string;
+}
+```
+
+## Cache Tags
+
+All appointment tracking endpoints use the `Statistics` cache tag:
+
+- `getMapLocations`
+- `getTrackingMetrics`
+- `getFixerStats`
+
+This tag is invalidated when appointment data changes, ensuring fresh statistics.
+
+<Note>
+The appointment fetching endpoint (`getAppointmentsByFixerId`) uses direct fetch calls rather than RTK Query, so it doesn't participate in the cache invalidation system. Always fetch fresh data when needed.
+</Note>

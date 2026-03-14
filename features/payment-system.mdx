@@ -1,0 +1,644 @@
+---
+title: 'Payment System'
+description: 'Comprehensive payment processing with multiple methods, wallet management, and invoice tracking'
+icon: 'credit-card'
+---
+
+## Overview
+
+Servineo Frontend implements a complete payment ecosystem supporting cash transactions, QR code payments, card processing, and a dedicated fixer wallet system. The payment system handles transactions, invoices, earnings, and bank account management.
+
+## Payment Methods
+
+<CardGroup cols={3}>
+  <Card title="Cash Payments" icon="money-bill">
+    In-person cash transactions with confirmation codes
+  </Card>
+  <Card title="QR Code" icon="qrcode">
+    Digital QR-based payments for quick transactions
+  </Card>
+  <Card title="Card Payments" icon="credit-card">
+    Credit/debit card processing with saved cards
+  </Card>
+</CardGroup>
+
+## Core Architecture
+
+### Payment Service
+
+The payment service (`src/app/[locale]/payment/service/payment.ts`) provides a unified API for all payment operations:
+
+```typescript title="Payment Service Types"
+export type Status = "paid" | "pending" | "failed";
+
+export type UISummary = {
+  id: string;
+  status: Status;
+  code?: string | null;        // Confirmation code
+  expiresAt?: string | null;   // Payment expiration
+  amount: {
+    total: number;
+    currency: string;          // BOB or USD
+  };
+};
+
+type BackendPaymentData = {
+  id?: string;
+  _id?: string;
+  status?: string;
+  code?: string;
+  expiresAt?: string;
+  total?: number;
+  amount?: {
+    total?: number;
+    currency?: string;
+  };
+  currency?: string;
+  [key: string]: unknown;
+};
+```
+
+### API Helper
+
+The service uses a unified fetch wrapper that routes through the API proxy:
+
+```typescript title="Unified API Fetch"
+async function apiFetch<T = unknown>(
+  path: string,
+  init?: RequestInit & { json?: unknown }
+): Promise<T> {
+  const opts: RequestInit = {
+    cache: "no-store",
+    ...init,
+    headers: { 
+      "Content-Type": "application/json", 
+      ...(init?.headers || {}) 
+    },
+  };
+  
+  if (init?.json !== undefined) {
+    opts.body = JSON.stringify(init.json);
+  }
+
+  const res = await fetch(`/api${path}`, opts);
+
+  if (!res.ok) {
+    const raw = await res.text().catch(() => "");
+    let msg = raw;
+    const ct = res.headers.get("content-type") || "";
+    
+    if (ct.includes("application/json")) {
+      try {
+        const j = JSON.parse(raw);
+        msg = j?.error || j?.message || raw || `HTTP ${res.status}`;
+      } catch {}
+    }
+    
+    throw new Error(`${msg || "Request failed"} (HTTP ${res.status})`);
+  }
+
+  const ct = res.headers.get("content-type") || "";
+  return ct.includes("application/json") ? res.json() : ({} as T);
+}
+```
+
+<Info>
+All payment requests route through `/api` proxy to handle CORS and add authentication headers server-side.
+</Info>
+
+## Payment Operations
+
+### Create Cash Payment
+
+```typescript title="Create Cash Payment"
+export type CreateCashPaymentDTO = {
+  jobId: string;
+  payerId?: string;
+  requesterId?: string;
+  fixerId?: string;
+  subTotal: number;
+  service_fee?: number;
+  discount?: number;
+  currency?: "BOB" | "USD";
+  paymentMethods?: "cash" | "qr" | "card";
+  commissionRate?: number;
+};
+
+export async function createCashPayment(input: CreateCashPaymentDTO) {
+  const payload = {
+    jobId: input.jobId,
+    ...(input.requesterId ? { requesterId: input.requesterId } : {}),
+    ...(input.fixerId ? { fixerId: input.fixerId } : {}),
+    ...(input.payerId ? { payerId: input.payerId } : {}),
+    subTotal: input.subTotal,
+    service_fee: input.service_fee ?? 0,
+    discount: input.discount ?? 0,
+    currency: input.currency ?? "BOB",
+    paymentMethods: input.paymentMethods ?? "cash",
+    commissionRate: input.commissionRate ?? 0.1,  // 10% default
+  };
+
+  return apiFetch<{ message: string; data: BackendPaymentData }>(
+    `/lab/payments`,
+    { method: "POST", json: payload }
+  );
+}
+```
+
+### Get Payment Summary
+
+```typescript title="Retrieve Payment Details"
+// By payment ID
+export async function getPaymentSummaryById(id: string): Promise<UISummary> {
+  const r = await apiFetch<{ data?: BackendPaymentData } | BackendPaymentData>(
+    `/lab/payments/${id}/summary`
+  );
+  const data = 'data' in r ? r.data : r;
+  return normalizeSummary(data);
+}
+
+// By job ID (latest payment)
+export async function getLastPaymentSummaryByJob(jobId: string): Promise<UISummary> {
+  const r = await apiFetch<{ data?: BackendPaymentData } | BackendPaymentData>(
+    `/lab/payments/by-job/${jobId}/summary`
+  );
+  const data = 'data' in r ? r.data : r;
+  return normalizeSummary(data);
+}
+```
+
+### Confirm Payment
+
+```typescript title="Confirm Cash Payment"
+export async function confirmPayment(id: string, code: string) {
+  return apiFetch<{ 
+    message: string; 
+    data: { 
+      id: string; 
+      total: number; 
+      status: Status; 
+      paidAt?: string 
+    } 
+  }>(
+    `/lab/payments/${id}/confirm`,
+    { method: "PATCH", json: { code } }
+  );
+}
+```
+
+### Response Normalization
+
+The service normalizes varying backend response formats:
+
+```typescript title="Payment Data Normalizer"
+function normalizeSummary(d: BackendPaymentData | null | undefined): UISummary {
+  if (!d) {
+    return {
+      id: "",
+      status: "pending" as Status,
+      code: null,
+      expiresAt: null,
+      amount: { total: 0, currency: "BOB" },
+    };
+  }
+
+  const total = typeof d.total === "number"
+    ? d.total
+    : typeof d.amount?.total === "number"
+    ? d.amount.total
+    : 0;
+
+  return {
+    id: String(d.id ?? d._id ?? ""),
+    status: (d.status ?? "pending") as Status,
+    code: d.code ?? null,
+    expiresAt: d.expiresAt ?? null,
+    amount: {
+      total,
+      currency: d.amount?.currency ?? d.currency ?? "BOB",
+    },
+  };
+}
+```
+
+## Fixer Wallet System
+
+The Fixer Wallet is a dedicated balance system for service providers:
+
+### Payment Center Dashboard
+
+Component: `src/Components/payment/CentroPagos.tsx`
+
+```typescript title="Fixer Dashboard Data"
+interface FixerData {
+  saldoActual: number;           // Current balance
+  totalGanado: number;           // Total earned
+  trabajosCompletados: number;   // Jobs completed
+  fixerId?: string;
+  isTestData?: boolean;
+
+  lowBalanceAlert?: {
+    type: 'none' | 'low' | 'critical';
+  };
+
+  lowBalanceInfo?: {
+    balance: number;
+    currency: string;
+    lowBalanceThreshold: number;
+    lastLowBalanceNotification?: string | Date;
+
+    flags?: {
+      needsLowAlert?: boolean;
+      needsCriticalAlert?: boolean;
+      cooldownUntil?: string | Date | null;
+      updatedAt?: string | Date | null;
+    };
+
+    toast?: {
+      shouldShow: boolean;
+      level: 'low' | 'critical' | 'none';
+      message: string;
+    };
+  };
+}
+```
+
+### Fetching Fixer Data
+
+```typescript title="Load Fixer Payment Data"
+const fetchFixerData = async (fixerId: string) => {
+  setLoading(true);
+  setError(null);
+  
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+  
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/api/fixer/payment-center/${fixerId}`,
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+    
+    if (!response.ok) {
+      const errData = await response.json();
+      throw new Error(errData.error || `Error ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    if (result.success && result.data) {
+      setFixerData(result.data);
+    } else {
+      throw new Error(result.error || 'Unknown error');
+    }
+  } catch (err: unknown) {
+    console.error('Error fetching fixer data:', err);
+    setError(err.message || 'Unknown error');
+    
+    // Fallback to test data
+    setFixerData({
+      saldoActual: 13.00,
+      totalGanado: 15420.00,
+      trabajosCompletados: 23,
+      fixerId: fixerId, 
+      isTestData: true 
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+```
+
+### Low Balance Alerts
+
+The system automatically notifies fixers when their wallet balance is low:
+
+```typescript title="Low Balance Toast Notifications"
+useEffect(() => {
+  const toastInfo = fixerData?.lowBalanceInfo?.toast;
+  if (!toastInfo) return;
+
+  const { level, message, shouldShow } = toastInfo;
+
+  const baseOptions = {
+    duration: 8000,
+    position: "top-center" as const,
+    transition: "bounceIn" as const,
+    sound: false,
+    progress: true,
+  };
+
+  if (shouldShow && level === "critical") {
+    showToast.error(
+      message || "Your balance is negative or critically low. Please recharge.",
+      baseOptions
+    );
+    return;
+  }
+
+  if (shouldShow && level === "low") {
+    showToast.warning(
+      message || "Your balance is low. Consider recharging your wallet.",
+      baseOptions
+    );
+    return;
+  }
+
+  if (level === "none") {
+    showToast.success(
+      message || "Your wallet is healthy.",
+      baseOptions
+    );
+  }
+}, [
+  fixerData?.lowBalanceInfo?.toast?.shouldShow,
+  fixerData?.lowBalanceInfo?.toast?.level,
+]);
+```
+
+<Warning>
+**Critical Balance Alert**: When balance drops below zero or a critical threshold, fixers receive an error-level toast notification.
+</Warning>
+
+## Payment UI Components
+
+### Wallet Dashboard
+
+Component: `src/Components/payment/WalletDashboardClient.tsx`
+
+Displays:
+- Current balance card
+- Total earnings summary
+- Completed jobs count
+- Quick action buttons
+
+### Card Management
+
+Component: `src/app/[locale]/payment/components/CardList.tsx`
+
+- List saved payment cards
+- Add new cards via modal
+- Set default card
+- Delete cards
+
+### Add Card Modal
+
+Component: `src/app/[locale]/payment/components/AddCardModal.tsx`
+
+```typescript title="Card Addition Flow"
+- Enter card number
+- Expiration date
+- CVV
+- Cardholder name
+- Billing address
+- Submit for tokenization
+```
+
+### QR Payment Interface
+
+Component: `src/Components/payment/PayWithQr.tsx`
+
+Generates and displays QR codes for payment:
+- Dynamic QR code generation
+- Countdown timer for expiration
+- Payment confirmation polling
+
+## Invoice Management
+
+### Invoice List
+
+Component: `src/Components/payment/InvoiceList.tsx`
+
+Displays all invoices with:
+- Invoice number
+- Date issued
+- Amount
+- Status (paid/pending/overdue)
+- Download PDF option
+
+### Invoice Detail
+
+Component: `src/Components/payment/InvoiceDetail.tsx`
+
+Detailed invoice view:
+- Line items
+- Subtotal, taxes, fees
+- Payment method
+- Transaction history
+
+## Payment History
+
+Component: `src/Components/payment/HistoryClient.tsx`
+
+Provides filterable transaction history:
+
+```typescript title="Transaction History Filters"
+- Date range selection
+- Payment method filter
+- Status filter (all/paid/pending/failed)
+- Search by transaction ID
+- Export to CSV/PDF
+```
+
+## Bank Account Integration
+
+Page: `src/app/[locale]/payment/cuenta-bancaria/page.tsx`
+
+Manage bank accounts for withdrawals:
+- Add bank account details
+- Verify account (micro-deposits)
+- Set default withdrawal account
+- View connected accounts
+
+## Wallet Recharge
+
+Page: `src/app/[locale]/payment/FixerWallet/recarga/page.tsx`
+
+Fixers can recharge their wallet via:
+
+<Tabs>
+  <Tab title="Bank Transfer">
+    Component: `TransferBank.tsx`
+    
+    - Display bank details for transfer
+    - Upload transfer receipt
+    - Manual verification by admin
+  </Tab>
+  
+  <Tab title="Card Payment">
+    Component: `CardListFixer.tsx`
+    
+    - Select saved card or add new
+    - Enter recharge amount
+    - Instant credit after authorization
+  </Tab>
+  
+  <Tab title="QR Code">
+    Page: `qrwallet/page.tsx`
+    
+    - Generate QR for mobile wallet apps
+    - Scan and pay
+    - Auto-confirm on successful payment
+  </Tab>
+</Tabs>
+
+## Payment Success Modal
+
+Component: `src/Components/payment/PaymentSuccessModal.tsx`
+
+Displays after successful payment:
+- Checkmark animation
+- Transaction details
+- Receipt download option
+- Return to dashboard button
+
+## Earnings Management
+
+### Recent Earnings Modal
+
+Component: `src/Components/payment/RecentEarningsModal.tsx`
+
+Shows recent earnings with:
+- Job details
+- Earning amount
+- Date completed
+- Commission breakdown
+
+### Earnings Filter
+
+Component: `src/Components/payment/EarningsFilterModal.tsx`
+
+Filter earnings by:
+- Date range
+- Job type
+- Minimum amount
+- Status (pending/cleared)
+
+## Payment Flows
+
+### Cash Payment Flow
+
+<Steps>
+  <Step title="Job Completion">
+    Fixer marks job as complete
+  </Step>
+  
+  <Step title="Payment Initiation">
+    System generates confirmation code
+  </Step>
+  
+  <Step title="Cash Exchange">
+    Requester pays fixer in person
+  </Step>
+  
+  <Step title="Code Confirmation">
+    Requester enters confirmation code in app
+  </Step>
+  
+  <Step title="Payment Verification">
+    Backend validates code and updates payment status
+  </Step>
+  
+  <Step title="Wallet Credit">
+    Fixer wallet is credited (minus commission)
+  </Step>
+</Steps>
+
+### QR Payment Flow
+
+<Steps>
+  <Step title="Generate QR">
+    System creates unique QR code with payment details
+  </Step>
+  
+  <Step title="Display QR">
+    QR shown to requester with amount and expiration
+  </Step>
+  
+  <Step title="Scan & Pay">
+    Requester scans with mobile wallet app
+  </Step>
+  
+  <Step title="Payment Polling">
+    Frontend polls backend for payment confirmation
+  </Step>
+  
+  <Step title="Success Confirmation">
+    Both parties notified of successful payment
+  </Step>
+</Steps>
+
+## Commission System
+
+Servineo takes a commission on each transaction:
+
+```typescript
+commissionRate: number = 0.1  // 10% default
+
+fixerEarnings = subTotal - (subTotal * commissionRate)
+serviceFee = subTotal * commissionRate
+```
+
+## Currency Support
+
+Supported currencies:
+- **BOB** (Boliviano) - Default
+- **USD** (US Dollar)
+
+```typescript
+currency?: "BOB" | "USD";
+```
+
+## API Endpoints
+
+```typescript
+// Payments
+POST   /api/lab/payments                    // Create payment
+GET    /api/lab/payments/:id/summary        // Get payment by ID
+GET    /api/lab/payments/by-job/:jobId/summary  // Get job payment
+PATCH  /api/lab/payments/:id/confirm        // Confirm payment
+
+// Fixer Wallet
+GET    /api/fixer/payment-center/:fixerId  // Get fixer dashboard data
+POST   /api/fixer/wallet/recharge           // Recharge wallet
+GET    /api/fixer/wallet/transactions       // Transaction history
+
+// Invoices
+GET    /api/invoices                        // List invoices
+GET    /api/invoices/:id                    // Invoice detail
+GET    /api/invoices/:id/pdf                // Download PDF
+```
+
+## Security Features
+
+<CardGroup cols={2}>
+  <Card title="Payment Codes" icon="lock">
+    Unique confirmation codes for cash payments
+  </Card>
+  <Card title="Tokenization" icon="shield">
+    Card details tokenized, never stored locally
+  </Card>
+  <Card title="HTTPS Only" icon="shield-check">
+    All payment API calls over secure connections
+  </Card>
+  <Card title="Expiring QR" icon="clock">
+    QR codes expire after set duration
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<Note>
+1. **Never log sensitive data**: Card numbers, CVVs should never appear in logs
+2. **Validate amounts server-side**: Always verify payment amounts on backend
+3. **Use idempotency keys**: Prevent duplicate charges from retries
+4. **Implement rate limiting**: Prevent payment spam and fraud
+5. **Store minimal PCI data**: Use payment processor tokens instead of raw card data
+</Note>
+
+## Related Documentation
+
+- [Notifications](/features/notifications) - Payment status notifications
+- [Multi-language Support](/features/multilingual) - Localized payment forms

@@ -1,0 +1,539 @@
+---
+title: 'Map Components'
+description: 'Leaflet-based interactive map components for location selection and display'
+icon: 'map'
+---
+
+## Overview
+
+Servineo uses **Leaflet** and **React Leaflet** for interactive map functionality. The map components provide location selection, marker placement, and reverse geocoding using OpenStreetMap data.
+
+## Prerequisites
+
+Before using map components, ensure you have the required dependencies:
+
+```bash Install Dependencies
+npm install leaflet react-leaflet
+npm install -D @types/leaflet
+```
+
+### CSS Import
+
+Leaflet requires its CSS to be imported in your application:
+
+```tsx app/layout.tsx or _app.tsx
+import 'leaflet/dist/leaflet.css';
+```
+
+<Note>
+The Leaflet CSS must be imported globally, typically in your root layout or app component.
+</Note>
+
+---
+
+## MapView
+
+Interactive map component with click-to-place marker functionality.
+
+### Props
+
+<ParamField path="onSelect" type="(lat: number, lon: number) => void" required>
+  Callback function called when user clicks on the map to select a location
+</ParamField>
+
+<ParamField path="markerPosition" type="{lat: number, lon: number} | null">
+  Current marker position. If null, no marker is displayed
+</ParamField>
+
+### Usage
+
+<CodeGroup>
+```tsx Basic Map
+'use client';
+
+import MapView from '@/Components/maps/location/MapView';
+import { useState } from 'react';
+
+export default function LocationPicker() {
+  const [position, setPosition] = useState(null);
+
+  const handleLocationSelect = (lat, lon) => {
+    setPosition({ lat, lon });
+    console.log('Selected coordinates:', lat, lon);
+  };
+
+  return (
+    <div>
+      <MapView 
+        onSelect={handleLocationSelect}
+        markerPosition={position}
+      />
+      
+      {position && (
+        <p>
+          Selected: {position.lat.toFixed(6)}, {position.lon.toFixed(6)}
+        </p>
+      )}
+    </div>
+  );
+}
+```
+
+```tsx With Default Position
+import MapView from '@/Components/maps/location/MapView';
+import { useState } from 'react';
+
+export default function EditLocation({ existingLocation }) {
+  const [position, setPosition] = useState({
+    lat: existingLocation?.latitude || -17.39,
+    lon: existingLocation?.longitude || -66.15,
+  });
+
+  return (
+    <MapView 
+      onSelect={(lat, lon) => setPosition({ lat, lon })}
+      markerPosition={position}
+    />
+  );
+}
+```
+
+```tsx Full Location Selector
+import MapView from '@/Components/maps/location/MapView';
+import { useState } from 'react';
+
+export default function AddressForm() {
+  const [location, setLocation] = useState({
+    lat: -17.39,
+    lon: -66.15,
+  });
+
+  const handleSelect = async (lat, lon) => {
+    setLocation({ lat, lon });
+    
+    // Reverse geocoding to get address
+    const address = await reverseGeocode(lat, lon);
+    console.log('Address:', address);
+  };
+
+  const reverseGeocode = async (lat, lon) => {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+    );
+    const data = await response.json();
+    return data.display_name;
+  };
+
+  return (
+    <div className="space-y-4">
+      <h3>Select Location</h3>
+      <div style={{ height: '400px' }}>
+        <MapView 
+          onSelect={handleSelect}
+          markerPosition={location}
+        />
+      </div>
+    </div>
+  );
+}
+```
+</CodeGroup>
+
+### Component Structure
+
+The MapView component consists of two parts:
+
+1. **MapContainer**: The Leaflet map container
+2. **MarkerHandler**: Internal component handling click events and marker state
+
+```tsx MapView Implementation
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { useState, useEffect } from 'react';
+
+function MapView({ onSelect, markerPosition }) {
+  return (
+    <MapContainer
+      center={[markerPosition?.lat || -17.39, markerPosition?.lon || -66.15]}
+      zoom={13}
+      style={{ height: 400, width: '100%' }}
+    >
+      <TileLayer url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' />
+      <MarkerHandler onSelect={onSelect} markerPosition={markerPosition} />
+    </MapContainer>
+  );
+}
+```
+
+### MarkerHandler
+
+Internal component that handles map click events:
+
+```tsx MarkerHandler Component
+function MarkerHandler({ onSelect, markerPosition }) {
+  const [position, setPosition] = useState(markerPosition || null);
+
+  useEffect(() => {
+    setPosition(markerPosition || null);
+  }, [markerPosition]);
+
+  useMapEvents({
+    click(e) {
+      setPosition({ lat: e.latlng.lat, lon: e.latlng.lng });
+      onSelect(e.latlng.lat, e.latlng.lng);
+    },
+  });
+
+  return position ? <Marker position={[position.lat, position.lon]} /> : null;
+}
+```
+
+### Features
+
+- **Click to Select**: Click anywhere on the map to place marker
+- **Visual Feedback**: Blue marker indicates selected location
+- **Default Center**: Cochabamba, Bolivia (-17.39, -66.15)
+- **Zoom Level**: Default zoom of 13 (city-level view)
+- **OpenStreetMap**: Free, open-source map tiles
+
+---
+
+## Map Configuration
+
+### Default Location
+
+The default map center is Cochabamba, Bolivia:
+
+```tsx
+const DEFAULT_CENTER = {
+  lat: -17.39,
+  lon: -66.15,
+};
+```
+
+### Map Styling
+
+The map container uses inline styles:
+
+```tsx
+style={{ height: 400, width: '100%' }}
+```
+
+You can customize these:
+
+```tsx Custom Dimensions
+<MapView 
+  onSelect={handleSelect}
+  markerPosition={position}
+  style={{ height: '600px', width: '100%' }}
+/>
+```
+
+### Tile Layers
+
+By default, OpenStreetMap tiles are used:
+
+```tsx
+<TileLayer url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' />
+```
+
+You can use alternative tile providers:
+
+<CodeGroup>
+```tsx OpenStreetMap (Default)
+<TileLayer 
+  url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+  attribution='&copy; OpenStreetMap contributors'
+/>
+```
+
+```tsx CartoDB Positron (Light)
+<TileLayer 
+  url='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+  attribution='&copy; OpenStreetMap, &copy; CartoDB'
+/>
+```
+
+```tsx Mapbox (Requires API Key)
+<TileLayer 
+  url='https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}'
+  id='mapbox/streets-v11'
+  accessToken='YOUR_MAPBOX_TOKEN'
+/>
+```
+</CodeGroup>
+
+---
+
+## Reverse Geocoding
+
+Convert coordinates to human-readable addresses using Nominatim API.
+
+### Implementation
+
+```tsx Reverse Geocoding Function
+export async function reverseGeocode(lat: number, lon: number): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?` +
+      `format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'Servineo-App/1.0',
+        },
+      }
+    );
+
+    const data = await response.json();
+    
+    if (data.display_name) {
+      return data.display_name;
+    }
+    
+    return 'No se pudo obtener la dirección';
+  } catch (error) {
+    console.error('Reverse geocoding error:', error);
+    return 'Error al obtener la dirección';
+  }
+}
+```
+
+### Usage with MapView
+
+```tsx Complete Location Selector
+import MapView from '@/Components/maps/location/MapView';
+import { useState } from 'react';
+import { reverseGeocode } from '@/lib/geocoding';
+
+export default function LocationSelector() {
+  const [location, setLocation] = useState(null);
+  const [address, setAddress] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLocationSelect = async (lat, lon) => {
+    setLocation({ lat, lon });
+    setLoading(true);
+    
+    const addressText = await reverseGeocode(lat, lon);
+    setAddress(addressText);
+    setLoading(false);
+  };
+
+  return (
+    <div>
+      <MapView 
+        onSelect={handleLocationSelect}
+        markerPosition={location}
+      />
+      
+      {loading && <p>Loading address...</p>}
+      
+      {address && (
+        <div className="mt-4 p-3 bg-blue-50 rounded">
+          <p className="text-sm font-medium">Selected Address:</p>
+          <p className="text-sm">{address}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+<Tip>
+**Nominatim Usage Policy**: 
+- Include a User-Agent header
+- Limit to 1 request per second
+- Cache results when possible
+- Consider running your own Nominatim instance for production
+</Tip>
+
+---
+
+## Advanced Usage
+
+### Multiple Markers
+
+Display multiple locations on the map:
+
+```tsx Multiple Markers
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+
+export default function ServiceLocations({ locations }) {
+  return (
+    <MapContainer center={[-17.39, -66.15]} zoom={12}>
+      <TileLayer url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' />
+      
+      {locations.map((location) => (
+        <Marker 
+          key={location.id}
+          position={[location.lat, location.lon]}
+        >
+          <Popup>
+            <div>
+              <h4>{location.name}</h4>
+              <p>{location.service}</p>
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+    </MapContainer>
+  );
+}
+```
+
+### Custom Marker Icons
+
+```tsx Custom Icon
+import L from 'leaflet';
+import { Marker } from 'react-leaflet';
+
+const customIcon = new L.Icon({
+  iconUrl: '/marker-icon.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+});
+
+export default function CustomMarker({ position }) {
+  return <Marker position={position} icon={customIcon} />;
+}
+```
+
+### Map Controls
+
+Add custom controls to the map:
+
+```tsx Current Location Button
+import { useMap } from 'react-leaflet';
+import { useEffect } from 'react';
+
+function LocationButton({ onLocationFound }) {
+  const map = useMap();
+
+  const handleLocate = () => {
+    map.locate().on('locationfound', (e) => {
+      map.flyTo(e.latlng, 15);
+      onLocationFound(e.latlng.lat, e.latlng.lng);
+    });
+  };
+
+  return (
+    <button 
+      onClick={handleLocate}
+      className="absolute top-4 right-4 z-[1000] bg-white px-4 py-2 rounded shadow"
+    >
+      📍 My Location
+    </button>
+  );
+}
+```
+
+---
+
+## Integration with Forms
+
+The MapView component is designed to integrate with form systems:
+
+### With React Hook Form
+
+```tsx Form Integration
+import { useForm, Controller } from 'react-hook-form';
+import MapView from '@/Components/maps/location/MapView';
+
+export default function LocationForm() {
+  const { control, handleSubmit } = useForm();
+
+  return (
+    <form onSubmit={handleSubmit(console.log)}>
+      <Controller
+        name="location"
+        control={control}
+        render={({ field }) => (
+          <MapView
+            markerPosition={field.value}
+            onSelect={(lat, lon) => field.onChange({ lat, lon })}
+          />
+        )}
+      />
+      
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+---
+
+## Troubleshooting
+
+### Marker Icon Not Showing
+
+Leaflet's default marker icon may not load correctly in Next.js. Fix:
+
+```tsx Fix Marker Icon
+import L from 'leaflet';
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+```
+
+### SSR Issues
+
+Leaflet doesn't support server-side rendering. Use dynamic imports:
+
+```tsx Dynamic Import
+import dynamic from 'next/dynamic';
+
+const MapView = dynamic(
+  () => import('@/Components/maps/location/MapView'),
+  { ssr: false }
+);
+
+export default function Page() {
+  return <MapView onSelect={handleSelect} markerPosition={null} />;
+}
+```
+
+### Map Not Displaying
+
+Ensure the container has a defined height:
+
+```tsx
+<div style={{ height: '400px' }}>
+  <MapView onSelect={handleSelect} markerPosition={position} />
+</div>
+```
+
+---
+
+## Best Practices
+
+<Tip>
+**Map Component Guidelines**:
+
+1. **Always set height**: Map containers need explicit height
+2. **Use dynamic imports**: Avoid SSR issues with Next.js
+3. **Rate limit geocoding**: Respect Nominatim's usage policy
+4. **Cache addresses**: Store geocoded addresses to reduce API calls
+5. **Handle errors**: Provide fallback UI for failed geocoding
+6. **Mobile optimization**: Ensure maps are touch-friendly
+7. **Accessibility**: Provide alternative text inputs for coordinates
+</Tip>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Forms" icon="file-pen" href="/developer/components/forms">
+    LocationModal uses MapView for form integration
+  </Card>
+  <Card title="Common Components" icon="layer-group" href="/developer/components/common">
+    Modal component used with maps
+  </Card>
+</CardGroup>

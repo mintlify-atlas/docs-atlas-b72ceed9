@@ -1,0 +1,164 @@
+---
+title: 'Component Library Overview'
+description: 'Comprehensive guide to Servineo Frontend component architecture and organization'
+icon: 'boxes'
+---
+
+## Introduction
+
+The Servineo Frontend component library is organized into multiple categories, providing a comprehensive set of reusable UI components built with React, TypeScript, and Tailwind CSS. The library includes over 230 components across various categories.
+
+## Component Architecture
+
+All components follow these principles:
+
+- **Type Safety**: Built with TypeScript for full type checking
+- **Accessibility**: ARIA attributes and semantic HTML
+- **Responsive Design**: Mobile-first approach with Tailwind CSS
+- **Composition**: Components can be composed together
+- **Controlled/Uncontrolled**: Support for both patterns where applicable
+
+## Directory Structure
+
+```
+src/Components/
+├── Common/              # Shared UI primitives
+├── Shared/              # Application-wide components
+├── ui/                  # Base UI components
+├── Tabs/                # Tab navigation system
+├── maps/                # Map integration components
+├── forms/               # Form-specific components
+├── appointments/        # Appointment management
+├── Job-offers/          # Job offer components
+├── fixer/               # Fixer-specific components
+├── requester/           # Requester-specific components
+└── ...
+```
+
+## Component Categories
+
+### Common Components
+
+Basic building blocks used throughout the application:
+
+- **Button**: Versatile button with multiple variants and sizes
+- **Input**: Text input with label and error handling
+- **Accordion**: Collapsible content sections
+- **StatCard**: Statistical display cards
+
+[Learn more →](/developer/components/common)
+
+### Form Components
+
+Comprehensive form handling with validation:
+
+- **JobOfferForm**: Job posting creation/editing
+- **AppointmentForm**: Appointment scheduling with validation
+- **LocationModal**: Interactive map-based location picker
+- **Form validation**: Zod schema integration
+
+[Learn more →](/developer/components/forms)
+
+### Map Components
+
+Leaflet-based interactive maps:
+
+- **MapView**: OpenStreetMap integration
+- **LocationModal**: Map-based location selection
+- **Marker handling**: Click-to-place markers
+
+[Learn more →](/developer/components/maps)
+
+## Design System Integration
+
+### Tailwind CSS
+
+All components use Tailwind CSS utility classes for styling:
+
+```tsx
+className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+```
+
+### Color Palette
+
+- **Primary**: Blue tones (`bg-primary`, `text-primary`)
+- **Secondary**: Gray tones for neutral elements
+- **Success/Error**: Green and red for status indicators
+
+### Spacing & Typography
+
+Consistent spacing scale (4px base) and typography hierarchy across all components.
+
+## State Management
+
+Components integrate with:
+
+- **React Hooks**: `useState`, `useEffect`, `useRef`
+- **React Hook Form**: Form state management
+- **Redux**: Global state for filters and user data
+- **Context API**: Tabs and modal state
+
+## Icon Library
+
+Components use **Lucide React** for icons:
+
+```tsx
+import { Search, X, ChevronDown } from 'lucide-react';
+```
+
+## Validation
+
+Form validation powered by **Zod**:
+
+```tsx
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+const schema = z.object({
+  name: z.string().min(1, 'Required'),
+  email: z.string().email(),
+});
+```
+
+## Accessibility Features
+
+<Note>
+All interactive components include:
+- Keyboard navigation support
+- ARIA labels and roles
+- Focus management
+- Screen reader compatibility
+</Note>
+
+## Performance Optimization
+
+- **Code Splitting**: Components loaded on-demand
+- **Memoization**: React.memo for expensive renders
+- **Lazy Loading**: Next.js dynamic imports
+- **Optimized Images**: Next.js Image component
+
+## Best Practices
+
+<Tip>
+**Component Usage Guidelines**:
+
+1. Always destructure props with TypeScript interfaces
+2. Use className prop for style customization
+3. Provide default values for optional props
+4. Handle loading and error states
+5. Add proper ARIA attributes
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Common Components" icon="layer-group" href="/developer/components/common">
+    Explore buttons, inputs, and base UI elements
+  </Card>
+  <Card title="Forms" icon="file-pen" href="/developer/components/forms">
+    Learn about form components and validation
+  </Card>
+  <Card title="Maps" icon="map" href="/developer/components/maps">
+    Integrate Leaflet maps in your application
+  </Card>
+</CardGroup>

@@ -1,0 +1,200 @@
+---
+title: 'Developer Overview'
+description: 'Getting started with Servineo Frontend development'
+icon: 'code'
+---
+
+## Welcome to Servineo Frontend
+
+Servineo Frontend is a modern, full-stack web application built with Next.js 15, React 19, and Redux Toolkit. This platform connects service providers (fixers) with customers (requesters) through an intuitive job marketplace interface.
+
+## Project Overview
+
+The application is structured as a monorepo with the following key characteristics:
+
+- **Framework**: Next.js 15.5.4 with App Router
+- **React Version**: 19.1.0
+- **Build Tool**: Turbopack (Next.js native)
+- **Language**: TypeScript 5.9.3
+- **State Management**: Redux Toolkit with RTK Query
+- **Styling**: Tailwind CSS 4.1.17
+- **Internationalization**: next-intl with English and Spanish support
+
+<Info>
+  This project uses the **Next.js 15 App Router** architecture, which is different from the legacy Pages Router. All routes are defined in the `src/app/[locale]/` directory.
+</Info>
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 20+
+- npm 11.6.4 or later
+
+### Installation
+
+```bash
+npm install
+```
+
+### Development Server
+
+```bash
+npm run dev
+```
+
+The application will start on [http://localhost:3000](http://localhost:3000) with Turbopack enabled for fast refresh.
+
+<Note>
+  The dev server uses `--turbopack` flag for enhanced performance. Turbopack provides significantly faster hot module replacement (HMR) than traditional webpack.
+</Note>
+
+### Available Scripts
+
+<CodeGroup>
+
+```bash Development
+npm run dev
+# Starts dev server with Turbopack on port 3000
+```
+
+```bash Build
+npm run build
+# Creates production build with Turbopack
+```
+
+```bash Production
+npm start
+# Starts production server
+```
+
+```bash Linting
+npm run lint
+# Runs ESLint code analysis
+```
+
+```bash Formatting
+npm run format
+# Formats code with Prettier
+
+npm run format:check
+# Checks code formatting without changes
+```
+
+</CodeGroup>
+
+## Core Features
+
+### Multi-Role System
+
+The application supports two primary user roles:
+
+1. **Requesters** - Customers who post job requests
+2. **Fixers** - Service providers who fulfill job requests
+
+### Key Functionality
+
+- **Job Marketplace**: Browse, search, and filter service requests
+- **Advanced Search**: Multi-criteria search with filters (src/app/[locale]/adv-search)
+- **Appointment System**: Calendar-based scheduling with day/week/month views
+- **Payment Integration**: Stripe integration for secure transactions
+- **User Authentication**: Google OAuth and traditional login
+- **Real-time Updates**: Redux-based state synchronization
+- **Geolocation**: Leaflet maps for service area visualization
+- **Multi-language**: English and Spanish with automatic locale detection
+
+## Development Environment Configuration
+
+### TypeScript Configuration
+
+The project uses strict TypeScript settings for type safety:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "strict": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
+}
+```
+
+<Tip>
+  Use the `@/` path alias to import modules from the `src` directory. For example: `import { Component } from '@/Components/MyComponent'`
+</Tip>
+
+### Environment Variables
+
+Create a `.env.local` file in the project root:
+
+```bash .env.local
+NEXT_PUBLIC_API_URL=http://localhost:3000
+# Add other environment variables as needed
+```
+
+<Warning>
+  The Next.js configuration currently has `ignoreBuildErrors: true` and `ignoreDuringBuilds: true` for emergency deployment. These should be removed for production-ready code to ensure type safety and code quality.
+</Warning>
+
+## API Architecture
+
+The application uses a **proxy pattern** for API requests:
+
+```typescript next.config.ts
+async rewrites() {
+  return [
+    {
+      source: '/api/:path*',
+      destination: 'http://127.0.0.1:8000/api/:path*',
+    },
+  ];
+}
+```
+
+All API calls to `/api/*` are proxied to the backend server running on port 8000. This is configured in:
+
+- `next.config.ts` - Proxy rewrite rules
+- `src/app/redux/services/baseApi.ts` - RTK Query base configuration
+
+## Code Quality Tools
+
+### ESLint
+
+Linting configuration in `eslint.config.mjs` with Next.js and Prettier integration.
+
+### Prettier
+
+Code formatting rules in `.prettierrc.json` ensure consistent code style across the codebase.
+
+### Type Safety
+
+Strict TypeScript configuration prevents common runtime errors and improves developer experience with IntelliSense.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Tech Stack" icon="layer-group" href="./tech-stack">
+    Explore the complete technology stack and key dependencies
+  </Card>
+  <Card title="Project Structure" icon="folder-tree" href="./project-structure">
+    Understand the directory organization and file structure
+  </Card>
+  <Card title="State Management" icon="database" href="./state-management">
+    Learn about Redux architecture and data flow
+  </Card>
+</CardGroup>
+
+## Getting Help
+
+For questions or issues:
+
+1. Review the architecture documentation in this developer section
+2. Check the `README.md` in the project root
+3. Consult the team's internal documentation
+4. Reach out to the development team
+
+<Info>
+  This documentation is auto-generated from the actual source code and configuration files. Always refer to the source of truth in the codebase for the most up-to-date information.
+</Info>

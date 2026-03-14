@@ -1,0 +1,491 @@
+---
+title: 'Ratings & Reviews System'
+description: 'Comprehensive rating and review system for service providers with real-time updates and detailed feedback'
+icon: 'star'
+---
+
+## Overview
+
+Servineo Frontend implements a robust rating and review system that allows requesters to evaluate fixers (service providers) based on their work quality. The system supports a 3-star rating scale with optional text comments and provides real-time updates via polling.
+
+## Rating Scale
+
+Unlike traditional 5-star systems, Servineo uses a simplified **3-star rating** approach:
+
+<CardGroup cols={3}>
+  <Card title="1 Star" icon="star">
+    Poor service or unsatisfactory work
+  </Card>
+  <Card title="2 Stars" icon="star">
+    Acceptable service, met basic expectations
+  </Card>
+  <Card title="3 Stars" icon="star">
+    Excellent service, exceeded expectations
+  </Card>
+</CardGroup>
+
+<Info>
+The 3-star system simplifies decision-making and reduces rating inflation common in 5-star systems.
+</Info>
+
+## Core Components
+
+### Star Rating Display
+
+The `StarRating` component visualizes ratings using SVG stars:
+
+```tsx title="StarRating Component"
+export function StarRating({
+  value,
+  size = 18,
+  srLabel,
+}: {
+  value: 1 | 2 | 3;
+  size?: number;
+  srLabel?: string;
+}) {
+  return (
+    <div className='inline-flex gap-1' aria-label={srLabel ?? `${value} of 3 stars`}>
+      {Array.from({ length: 3 }).map((_, i) => {
+        const filled = i < value;
+        return (
+          <svg
+            key={i}
+            width={size}
+            height={size}
+            viewBox='0 0 24 24'
+            role='img'
+            aria-hidden='true'
+            style={
+              filled
+                ? { fill: 'var(--highlight)' }
+                : { fill: 'transparent', stroke: 'var(--highlight)' }
+            }
+          >
+            <path d='M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z' />
+          </svg>
+        );
+      })}
+    </div>
+  );
+}
+```
+
+**Features:**
+- Customizable star size
+- Filled vs. outlined stars
+- Accessible with screen reader labels
+- CSS custom properties for theming
+
+### Rating Details List
+
+The `RatingDetailsList` component displays all reviews for a fixer:
+
+```tsx title="Rating List Component"
+export function RatingDetailsList({ 
+  ratings, 
+  error 
+}: { 
+  ratings: FixerRating[]; 
+  error?: string 
+}) {
+  const [expandedCommentId, setExpandedCommentId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Responsive comment length limits
+  const commentLengthLimit = isMobile ? 100 : 200;
+  
+  const toggleComment = (id: string) => 
+    setExpandedCommentId((prev) => (prev === id ? null : id));
+
+  if (error) {
+    return (
+      <div className='p-4 rounded-lg text-sm error-box'>
+        ⚠️ Error loading ratings. Please try again.
+      </div>
+    );
+  }
+
+  if (!ratings?.length) {
+    return (
+      <div className='p-6 text-sm border rounded-lg'>
+        This FIXER has no ratings yet.
+      </div>
+    );
+  }
+
+  // Sort by most recent first
+  const ordered = [...ratings].sort(
+    (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)
+  );
+
+  return (
+    <ul className='flex flex-col gap-4'>
+      {ordered.map((r) => {
+        const isLongComment = r.comment && r.comment.length > commentLengthLimit;
+        return (
+          <li key={r.id} className='flex items-start gap-4 p-4 rounded-xl border'>
+            {/* User avatar */}
+            <div className='h-10 w-10 rounded-full flex items-center justify-center'>
+              <span className='text-xs'>👤</span>
+            </div>
+
+            <div className='flex-1 min-w-0'>
+              {/* Header: name and stars */}
+              <div className='flex items-center justify-between gap-2'>
+                <p className='font-medium truncate'>{r.requester}</p>
+                <StarRating value={r.score} />
+              </div>
+
+              {/* Date */}
+              <p className='text-xs text-muted'>
+                {new Date(r.createdAt).toLocaleDateString()}
+              </p>
+
+              {/* Comment with expand/collapse */}
+              <p className={expandedCommentId === r.id ? '' : 'line-clamp-2'}>
+                {r.comment}
+              </p>
+
+              {isLongComment && (
+                <button
+                  className='mt-2 text-xs sm:hidden'
+                  onClick={() => toggleComment(r.id)}
+                  aria-expanded={expandedCommentId === r.id}
+                >
+                  {expandedCommentId === r.id ? 'See less' : 'See more'}
+                </button>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+```
+
+**Features:**
+- Sorted by most recent first
+- Responsive comment truncation
+- Expand/collapse long comments on mobile
+- Empty state handling
+- Error state display
+
+## Data Types
+
+### FixerRating Interface
+
+```typescript title="Rating Data Structure"
+type FixerRating = {
+  id: string;              // Unique rating ID
+  requester: string;       // Name of person who rated
+  score: 1 | 2 | 3;       // Rating value (1-3 stars)
+  comment: string;         // Optional text feedback
+  createdAt: string;       // ISO timestamp
+};
+```
+
+### Backend Response Mapping
+
+```typescript title="API Response to Rating Conversion"
+type RatingResponse = {
+  _id: string;
+  title?: string;          // Requester name/title
+  rating: 1 | 2 | 3;
+  comment?: string;
+  createdAt: string;
+};
+
+const mapped = data.map((d) => ({
+  id: d._id,
+  requester: d.title || 'Unknown',
+  score: d.rating as 1 | 2 | 3,
+  comment: d.comment || '',
+  createdAt: d.createdAt,
+}));
+```
+
+## Real-Time Updates
+
+The `useFixerRatings` hook implements polling for live rating updates:
+
+```typescript title="Real-Time Rating Hook"
+function useFixerRatings(fixerId: string, pollInterval: number = 5000) {
+  const [ratings, setRatings] = useState<FixerRating[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const url = fixerId ? apiUrl(`/api/ratings.details/${fixerId}`) : null;
+
+  const load = useCallback(async () => {
+    if (!url) return;
+    
+    try {
+      const data = await jsonFetcher<RatingResponse[]>(url);
+      const mapped = data.map((d) => ({
+        id: d._id,
+        requester: d.title || 'Unknown',
+        score: d.rating as 1 | 2 | 3,
+        comment: d.comment || '',
+        createdAt: d.createdAt,
+      }));
+      
+      setRatings(mapped);
+      setError(null);
+    } catch (err) {
+      setError(err as Error);
+      setRatings([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [url]);
+
+  // Initial load
+  useEffect(() => {
+    setIsLoading(true);
+    load();
+  }, [url, load]);
+
+  // Polling interval
+  useEffect(() => {
+    const interval = setInterval(() => {
+      load();
+    }, pollInterval);
+
+    return () => clearInterval(interval);
+  }, [load, pollInterval]);
+
+  return { ratings, isLoading, error, refresh: load };
+}
+```
+
+**Features:**
+- Automatic polling every 5 seconds (configurable)
+- Manual refresh capability
+- Error handling
+- Loading states
+- Cleanup on unmount
+
+<Warning>
+Polling every 5 seconds can increase server load. Consider using WebSockets for production applications with high traffic.
+</Warning>
+
+## Client Component Integration
+
+The `ClientRatings` component ties everything together:
+
+```tsx title="Client Ratings Component"
+export function ClientRatings({ fixerId }: { fixerId: string }) {
+  const { ratings, isLoading, error } = useFixerRatings(fixerId);
+  
+  if (isLoading) {
+    return <div className='p-4 text-sm'>Loading ratings...</div>;
+  }
+  
+  return <RatingDetailsList ratings={ratings} error={error?.message} />;
+}
+```
+
+## Rating Pages
+
+The fixer ratings detail page is located at:
+
+```
+src/app/[locale]/fixer-ratings-details/[fixerId]/page.tsx
+```
+
+**Structure:**
+- Dynamic route with `fixerId` parameter
+- Server-side rendering support
+- Locale-aware routing
+- Custom theme CSS
+
+## API Endpoints
+
+### Get Fixer Ratings
+
+```typescript
+GET /api/ratings.details/{fixerId}
+
+Response:
+[
+  {
+    "_id": "rating_123",
+    "title": "John Doe",
+    "rating": 3,
+    "comment": "Excellent work! Very professional.",
+    "createdAt": "2026-03-14T10:30:00Z"
+  },
+  ...
+]
+```
+
+### Submit Rating (Hypothetical)
+
+```typescript
+POST /api/ratings
+
+Body:
+{
+  "fixerId": "fixer_456",
+  "requesterId": "requester_789",
+  "jobId": "job_012",
+  "rating": 3,
+  "comment": "Great job!"
+}
+
+Response:
+{
+  "success": true,
+  "ratingId": "rating_123"
+}
+```
+
+## Responsive Design
+
+### Desktop View
+
+- Full comments visible (up to 200 characters before truncation)
+- Wider card layout
+- Side-by-side avatar and content
+
+### Mobile View
+
+- Shorter comment preview (100 characters)
+- "See more" / "See less" toggle for long comments
+- Stacked layout for smaller screens
+- Touch-friendly tap targets
+
+```typescript title="Responsive Comment Handling"
+const [isMobile, setIsMobile] = useState(false);
+
+useEffect(() => {
+  const handleResize = () => setIsMobile(window.innerWidth < 640);
+  window.addEventListener('resize', handleResize);
+  handleResize();
+  return () => window.removeEventListener('resize', handleResize);
+}, []);
+
+const commentLengthLimit = isMobile ? 100 : 200;
+```
+
+## Theming
+
+Rating components use CSS custom properties for consistent theming:
+
+```css title="theme.css"
+:root {
+  --highlight: #f59e0b;         /* Star color */
+  --text-muted: #6b7280;        /* Secondary text */
+  --surface-card: #ffffff;      /* Card background */
+  --surface-border: #e5e7eb;    /* Border color */
+  --foreground: #111827;        /* Primary text */
+}
+
+[data-theme='dark'] {
+  --highlight: #fbbf24;
+  --text-muted: #9ca3af;
+  --surface-card: #1f2937;
+  --surface-border: #374151;
+  --foreground: #f9fafb;
+}
+```
+
+## Accessibility Features
+
+<CardGroup cols={2}>
+  <Card title="ARIA Labels" icon="universal-access">
+    Screen reader labels for star ratings
+  </Card>
+  <Card title="Keyboard Navigation" icon="keyboard">
+    Full keyboard support for expand/collapse
+  </Card>
+  <Card title="Semantic HTML" icon="code">
+    Proper use of lists and headings
+  </Card>
+  <Card title="Focus Management" icon="bullseye">
+    Visible focus indicators on interactive elements
+  </Card>
+</CardGroup>
+
+## Empty States
+
+### No Ratings Yet
+
+```tsx
+<div className='p-6 text-sm border rounded-lg'>
+  This FIXER has no ratings yet.
+</div>
+```
+
+### Error Loading Ratings
+
+```tsx
+<div className='p-4 rounded-lg text-sm error-box'>
+  ⚠️ Error loading ratings. Please try again.
+</div>
+```
+
+## Performance Considerations
+
+<Steps>
+  <Step title="Implement pagination">
+    For fixers with many ratings, load ratings in chunks
+  </Step>
+  
+  <Step title="Virtual scrolling">
+    Use virtual lists for large rating sets
+  </Step>
+  
+  <Step title="Optimize polling">
+    Increase poll interval or pause when tab is inactive
+  </Step>
+  
+  <Step title="Cache responses">
+    Use HTTP cache headers to reduce redundant requests
+  </Step>
+</Steps>
+
+## Future Enhancements
+
+- **Filtering**: Filter ratings by star count
+- **Sorting**: Sort by date, rating, or helpfulness
+- **Moderation**: Flag inappropriate comments
+- **Photos**: Allow users to attach photos to reviews
+- **Responses**: Let fixers respond to reviews
+- **Verified badges**: Mark verified job completions
+
+## Best Practices
+
+<Note>
+1. **Validate ratings on backend**: Always validate rating values (1-3) server-side
+2. **Rate limiting**: Prevent spam by limiting rating submissions per user
+3. **Anonymization**: Consider privacy when displaying requester names
+4. **Profanity filtering**: Screen comments for inappropriate content
+5. **Edit/delete restrictions**: Set time limits for editing/deleting ratings
+</Note>
+
+## Integration Example
+
+```tsx title="Using ClientRatings in a Page"
+import { ClientRatings } from '@/Components/ratings/ClientRatings';
+
+export default function FixerProfilePage({ params }: { params: { fixerId: string } }) {
+  return (
+    <div className='container mx-auto p-6'>
+      <h1>Fixer Profile</h1>
+      
+      <section className='mt-8'>
+        <h2 className='text-2xl font-bold mb-4'>Customer Reviews</h2>
+        <ClientRatings fixerId={params.fixerId} />
+      </section>
+    </div>
+  );
+}
+```
+
+## Related Documentation
+
+- [Notifications](/features/notifications) - Rating submission feedback
+- [Multi-language Support](/features/multilingual) - Translated rating labels

@@ -1,0 +1,469 @@
+---
+title: Job Offers Management
+description: Complete guide to creating, managing, and optimizing job offers as a fixer
+---
+
+# Job Offers Management
+
+Job offers are your service listings on Servineo. This guide covers everything you need to know about creating and managing effective job offers.
+
+## What are Job Offers?
+
+Job offers are service listings that:
+
+- Showcase your services to potential clients
+- Include pricing, descriptions, and photos
+- Can be toggled active/inactive
+- Support promotional campaigns
+- Display in search results and fixer profiles
+
+<Info>
+Active job offers appear in search results and on your public profile. Inactive offers are hidden from clients but remain in your dashboard.
+</Info>
+
+## Job Offer Structure
+
+```typescript
+interface IJobOffer {
+  _id: string;
+  fixerId: string;
+  fixerName: string;
+  title: string;
+  description: string;
+  category: string;
+  tags: string[];
+  price: number;
+  city: string;
+  contactPhone: string;
+  photos: string[];
+  rating: number;
+  status: boolean;  // true = active, false = inactive
+  createdAt: Date;
+}
+```
+
+## Creating a Job Offer
+
+Access job offers from your dashboard's "Ofertas de Trabajo" tab.
+
+<Steps>
+  <Step title="Click 'Nueva Oferta'">
+    Opens the job offer creation modal
+  </Step>
+  
+  <Step title="Fill Required Fields">
+    Enter title, category, description, and pricing
+  </Step>
+  
+  <Step title="Upload Photos">
+    Add 1-5 photos showcasing your service
+  </Step>
+  
+  <Step title="Add Tags">
+    Select up to 5 tags for better discoverability
+  </Step>
+  
+  <Step title="Submit">
+    Click "Guardar" to publish your offer
+  </Step>
+</Steps>
+
+### Required Fields
+
+<CardGroup cols={2}>
+  <Card title="Title" icon="heading">
+    Clear, descriptive service name (required)
+  </Card>
+  
+  <Card title="Category" icon="folder">
+    Primary service category (required)
+  </Card>
+  
+  <Card title="Description" icon="align-left">
+    Detailed service description (required)
+  </Card>
+  
+  <Card title="Price" icon="dollar-sign">
+    Service cost in Bolivianos (required)
+  </Card>
+  
+  <Card title="City" icon="map-pin">
+    Service location (required)
+  </Card>
+  
+  <Card title="Photos" icon="image">
+    1-5 service photos (required for new offers)
+  </Card>
+</CardGroup>
+
+### Form Validation
+
+The job offer form uses Zod schema validation:
+
+```typescript
+const jobOfferSchema = z.object({
+  title: z.string().min(1, 'El título es requerido'),
+  description: z.string().min(1, 'La descripción es requerida'),
+  category: z.string().min(1, 'La categoría es requerida'),
+  price: z.number().min(0, 'El precio debe ser positivo'),
+  city: z.string(),
+  contactPhone: z.string(),
+  tags: z.array(z.string()).min(1).max(5)
+});
+```
+
+## Service Categories
+
+Available categories for job offers:
+
+- **Plomería** (Plumbing)
+- **Electricidad** (Electrical)
+- **Carpintería** (Carpentry)
+- **Pintura** (Painting)
+- **Albañilería** (Masonry)
+- **Jardinería** (Gardening)
+- **Limpieza** (Cleaning)
+- **And more...**
+
+<Note>
+The category you select affects search results and client filtering. Choose the most relevant category for your service.
+</Note>
+
+## Photo Management
+
+### Upload Requirements
+
+- **Format**: JPG, PNG, WebP
+- **Size**: Maximum 5MB per image
+- **Count**: 1-5 photos per offer
+- **Recommended**: High-quality, well-lit photos
+
+### Photo Upload Process
+
+```tsx
+const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const files = Array.from(e.target.files || []);
+  
+  // Validate count
+  if (selectedImages.length + files.length > 5) {
+    showNotify('warning', 'Máximo 5 imágenes');
+    return;
+  }
+  
+  // Validate size
+  files.forEach((file) => {
+    if (file.size > 5 * 1024 * 1024) {
+      showNotify('error', 'Imagen muy grande');
+    }
+  });
+};
+```
+
+<Warning>
+You must upload at least 1 photo when creating a new offer. Editing existing offers does not require new photos.
+</Warning>
+
+### Photo Preview
+
+Before submission:
+
+- Photos display in a grid preview
+- Hover to see remove button
+- Click X to delete individual photos
+- Photos can be replaced before saving
+
+## Tags System
+
+Tags improve discoverability of your offers:
+
+### Adding Tags
+
+<Steps>
+  <Step title="Select from Dropdown">
+    Choose from available service categories
+  </Step>
+  
+  <Step title="Tag Appears">
+    Tag is added to your tag list
+  </Step>
+  
+  <Step title="Repeat">
+    Add up to 5 tags total
+  </Step>
+</Steps>
+
+### Tag Rules
+
+- Minimum: 1 tag (automatically includes category)
+- Maximum: 5 tags
+- No duplicate tags
+- Tags can be removed by clicking the X icon
+
+```tsx
+const handleAddTag = (value: string) => {
+  if (!value) return;
+  
+  if (!currentTags.includes(value) && currentTags.length < 5) {
+    setValue('tags', [...currentTags, value]);
+  }
+};
+```
+
+<Tip>
+Use specific tags that clients might search for. For example, a plumbing offer could include: "Plomería", "Reparaciones", "Emergencias", "Instalación".
+</Tip>
+
+## City Selection
+
+Available cities in Bolivia:
+
+```typescript
+const boliviaCities = [
+  { value: 'La Paz', label: 'La Paz' },
+  { value: 'Cochabamba', label: 'Cochabamba' },
+  { value: 'Santa Cruz', label: 'Santa Cruz' },
+  { value: 'Sucre', label: 'Sucre' },
+  { value: 'Oruro', label: 'Oruro' },
+  { value: 'Potosí', label: 'Potosí' },
+  { value: 'Tarija', label: 'Tarija' },
+  { value: 'Beni', label: 'Beni' },
+  { value: 'Pando', label: 'Pando' }
+];
+```
+
+## Editing Job Offers
+
+<Steps>
+  <Step title="Click Edit Icon">
+    On the job offer card in your dashboard
+  </Step>
+  
+  <Step title="Modify Fields">
+    Update any information (title, price, photos, etc.)
+  </Step>
+  
+  <Step title="Save Changes">
+    Click "Guardar" to update the offer
+  </Step>
+</Steps>
+
+### Edit Modal
+
+When editing:
+
+- Form pre-populates with existing data
+- Existing photos display in preview
+- You can add new photos without removing old ones
+- Changes save via `updateJob` mutation
+
+```typescript
+if (editingOffer) {
+  await updateJob({ jobId: editingOffer._id, formData }).unwrap();
+}
+```
+
+## Offer Status Management
+
+### Active vs Inactive
+
+<CardGroup cols={2}>
+  <Card title="Active Offers" icon="check-circle">
+    Visible to clients in search results and your profile
+  </Card>
+  
+  <Card title="Inactive Offers" icon="x-circle">
+    Hidden from clients, kept in your dashboard for later reactivation
+  </Card>
+</CardGroup>
+
+### Toggling Status
+
+```typescript
+const handleToggleActive = async (jobId: string) => {
+  await toggleJobStatus({ jobId }).unwrap();
+  await refetch(); // Refresh list
+};
+```
+
+Offers can be toggled active/inactive:
+
+- Click the toggle button on the offer card
+- Status changes immediately
+- Inactive offers show with dimmed styling
+
+<Info>
+Use inactive status when you're temporarily unable to take new clients, rather than deleting the offer.
+</Info>
+
+## Filtering Offers
+
+Filter your offers by status:
+
+```tsx
+<select onChange={(e) => setStatusFilter(e.target.value)}>
+  <option value="all">Todas</option>
+  <option value="active">Activas</option>
+  <option value="inactive">Inactivas</option>
+</select>
+```
+
+**Filter Options:**
+- **All**: Show all offers regardless of status
+- **Active**: Show only active offers
+- **Inactive**: Show only inactive offers
+
+## Deleting Job Offers
+
+<Warning>
+Deleting an offer is permanent and cannot be undone. Consider using inactive status instead.
+</Warning>
+
+### Delete Process
+
+<Steps>
+  <Step title="Click Delete Icon">
+    On the job offer card
+  </Step>
+  
+  <Step title="Confirm Deletion">
+    A warning modal appears asking for confirmation
+  </Step>
+  
+  <Step title="Confirm">
+    Click "Confirmar" to permanently delete
+  </Step>
+</Steps>
+
+```typescript
+const confirmDelete = (jobId: string) => {
+  showNotify('warning', 'Confirmar eliminación', () => {
+    await deleteJob({ jobId, fixerId: userId }).unwrap();
+  });
+};
+```
+
+## Promotions
+
+### Creating Promotions
+
+Boost offer visibility with promotions:
+
+<Steps>
+  <Step title="Click 'Crear Promoción'">
+    On the offer card menu
+  </Step>
+  
+  <Step title="Set Promotion Details">
+    Enter promotional price and description
+  </Step>
+  
+  <Step title="Submit">
+    Promotion becomes active immediately
+  </Step>
+</Steps>
+
+```typescript
+interface Promotion {
+  title: string;
+  description: string;
+  offerId: string;
+  fixerId: string;
+  price: string;  // Promotional price
+}
+```
+
+<Tip>
+Promotions appear with special badges in search results, increasing click-through rates by up to 40%.
+</Tip>
+
+## Job Offer Card Display
+
+Your offers display as cards with:
+
+- **Main Photo**: First uploaded image
+- **Title & Price**: Prominent display
+- **Category Badge**: Color-coded category
+- **Tags**: Up to 5 tag badges
+- **Status Indicator**: Active/inactive state
+- **Action Buttons**: Edit, delete, toggle status, create promo
+
+```tsx
+<JobOfferCard
+  offer={offer}
+  onEdit={() => handleOpenModal(offer)}
+  onDelete={() => confirmDelete(offer._id)}
+  onToggleActive={() => handleToggleActive(offer._id)}
+  onCreatePromo={() => setIsCreatePromoModalOpen(true)}
+/>
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Write compelling titles">
+    Use specific, benefit-driven titles like "Plomería de Emergencia 24/7" instead of just "Plomería"
+  </Accordion>
+  
+  <Accordion title="Detailed descriptions">
+    Include what's included, your experience, and what makes you different. Aim for 100-200 words.
+  </Accordion>
+  
+  <Accordion title="Competitive pricing">
+    Research competitor pricing in your area. Consider offering package deals.
+  </Accordion>
+  
+  <Accordion title="Professional photos">
+    Use well-lit, high-quality photos showing your work process and results.
+  </Accordion>
+  
+  <Accordion title="Relevant tags">
+    Choose tags that potential clients would actually search for.
+  </Accordion>
+  
+  <Accordion title="Keep offers updated">
+    Regularly review and update pricing, photos, and descriptions.
+  </Accordion>
+</AccordionGroup>
+
+## Performance Optimization
+
+The job offers section includes:
+
+- Lazy loading for offer cards
+- Image optimization and compression
+- Debounced search/filter
+- Cached offer data (refetch on actions)
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Photos not uploading">
+    Check file size (max 5MB) and format (JPG, PNG, WebP). Clear browser cache if issues persist.
+  </Accordion>
+  
+  <Accordion title="Can't submit offer">
+    Ensure all required fields are filled and at least 1 photo is uploaded for new offers.
+  </Accordion>
+  
+  <Accordion title="Tags not saving">
+    You must have at least 1 tag and maximum 5 tags. Category is automatically included.
+  </Accordion>
+  
+  <Accordion title="Offer not appearing in search">
+    Check that offer status is "active". Inactive offers don't appear in client searches.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+Changes to job offers typically reflect in search results within 5-10 minutes due to caching.
+</Note>
+
+## Next Steps
+
+- Learn about [dashboard statistics](/fixers/dashboard)
+- Set up your [digital wallet](/fixers/wallet) to receive payments
+- Manage [calendar and availability](/fixers/calendar)
+
+<Tip>
+Create 3-5 different job offers covering your various service types. This increases your visibility in search results and attracts more diverse clients.
+</Tip>

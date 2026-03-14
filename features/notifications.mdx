@@ -1,0 +1,619 @@
+---
+title: 'Notification System'
+description: 'Comprehensive notification system with modal alerts, toast messages, and real-time feedback'
+icon: 'bell'
+---
+
+## Overview
+
+Servineo Frontend implements a multi-layered notification system that provides user feedback through modal dialogs and toast notifications. The system supports various notification types, auto-dismiss functionality, and confirmation dialogs.
+
+## Notification Types
+
+<CardGroup cols={4}>
+  <Card title="Success" icon="circle-check" color="#10b981">
+    Positive confirmations and completions
+  </Card>
+  <Card title="Error" icon="circle-xmark" color="#ef4444">
+    Errors and failures requiring attention
+  </Card>
+  <Card title="Info" icon="circle-info" color="#3b82f6">
+    Informational messages and updates
+  </Card>
+  <Card title="Warning" icon="triangle-exclamation" color="#f59e0b">
+    Warnings requiring user confirmation
+  </Card>
+</CardGroup>
+
+## Modal Notifications
+
+The primary notification component is `NotificationModal` located at `src/Components/Modal-notifications.tsx`:
+
+### Component Interface
+
+```typescript title="NotificationModal Props"
+interface NotificationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  type: 'success' | 'error' | 'info' | 'warning';
+  title: string;
+  message: ReactNode;
+  icon?: LucideIcon;              // Custom icon override
+  autoClose?: boolean;            // Default: true
+  autoCloseDelay?: number;        // Default: 3000ms
+  
+  // Confirmation actions
+  onConfirm?: () => void;
+  onCancel?: () => void;
+  confirmText?: string;           // Default: 'Confirmar'
+  cancelText?: string;            // Default: 'Cancelar'
+}
+```
+
+### Type Configuration
+
+Each notification type has predefined styling:
+
+```typescript title="Notification Type Configs"
+const typeConfig = {
+  success: {
+    icon: CheckCircle,
+    bgColor: 'bg-green-500/10',
+    borderColor: 'border-green-500/30',
+    iconColor: 'text-green-500',
+    titleColor: 'text-green-700 dark:text-green-400',
+    progressColor: 'bg-green-500',
+    buttonColor: 'bg-green-600 hover:bg-green-700',
+  },
+  error: {
+    icon: AlertCircle,
+    bgColor: 'bg-red-500/10',
+    borderColor: 'border-red-500/30',
+    iconColor: 'text-red-500',
+    titleColor: 'text-red-700 dark:text-red-400',
+    progressColor: 'bg-red-500',
+    buttonColor: 'bg-red-600 hover:bg-red-700',
+  },
+  info: {
+    icon: Info,
+    bgColor: 'bg-blue-500/10',
+    borderColor: 'border-blue-500/30',
+    iconColor: 'text-blue-500',
+    titleColor: 'text-blue-700 dark:text-blue-400',
+    progressColor: 'bg-blue-500',
+    buttonColor: 'bg-blue-600 hover:bg-blue-700',
+  },
+  warning: {
+    icon: AlertTriangle,
+    bgColor: 'bg-orange-500/10',
+    borderColor: 'border-orange-500/30',
+    iconColor: 'text-orange-500',
+    titleColor: 'text-orange-700 dark:text-orange-400',
+    progressColor: 'bg-orange-500',
+    buttonColor: 'bg-orange-600 hover:bg-orange-700',
+  },
+};
+```
+
+### Auto-Close Behavior
+
+Notifications automatically close after a delay, except for warnings:
+
+```typescript title="Auto-Close Logic"
+const shouldAutoClose = isOpen && autoClose && type !== 'warning';
+
+useEffect(() => {
+  if (shouldAutoClose) {
+    const timer = setTimeout(() => {
+      onClose();
+    }, autoCloseDelay);
+    return () => clearTimeout(timer);
+  }
+}, [shouldAutoClose, autoCloseDelay, onClose]);
+```
+
+<Info>
+**Warning notifications** do not auto-close by default to ensure users acknowledge important messages.
+</Info>
+
+### Progress Bar
+
+Auto-closing notifications display an animated progress bar:
+
+```tsx title="Progress Bar Component"
+{shouldAutoClose && (
+  <div className='mt-4 h-1 bg-gray-100 rounded-full overflow-hidden'>
+    <div
+      className={`h-full ${config.progressColor} animate-progress origin-left`}
+      style={{ animationDuration: `${autoCloseDelay}ms` }}
+    />
+  </div>
+)}
+```
+
+## Usage Examples
+
+### Basic Success Notification
+
+```typescript title="Success Message"
+const [notification, setNotification] = useState<NotificationState>({
+  isOpen: false,
+  type: 'info',
+  title: '',
+  message: '',
+});
+
+// Show success
+setNotification({
+  isOpen: true,
+  type: 'success',
+  title: 'Payment Successful',
+  message: 'Your payment of Bs. 150.00 has been processed.',
+});
+
+// In JSX
+<NotificationModal
+  isOpen={notification.isOpen}
+  onClose={() => setNotification({ ...notification, isOpen: false })}
+  type={notification.type}
+  title={notification.title}
+  message={notification.message}
+/>
+```
+
+### Error Notification
+
+```typescript title="Error Feedback"
+setNotification({
+  isOpen: true,
+  type: 'error',
+  title: 'Login Failed',
+  message: 'Invalid credentials. Please check your email and password.',
+});
+```
+
+### Warning with Confirmation
+
+```typescript title="Confirmation Dialog"
+setNotification({
+  isOpen: true,
+  type: 'warning',
+  title: 'Delete Account',
+  message: 'This action cannot be undone. Are you sure you want to delete your account?',
+});
+
+<NotificationModal
+  isOpen={notification.isOpen}
+  onClose={() => setNotification({ ...notification, isOpen: false })}
+  type='warning'
+  title='Delete Account'
+  message='This action cannot be undone. Are you sure?'
+  onConfirm={() => {
+    // Handle deletion
+    deleteAccount();
+  }}
+  onCancel={() => {
+    // Just close
+  }}
+  confirmText='Delete'
+  cancelText='Cancel'
+  autoClose={false}
+/>
+```
+
+### Custom Icon
+
+```typescript title="Custom Icon Override"
+import { Rocket } from 'lucide-react';
+
+<NotificationModal
+  isOpen={true}
+  onClose={handleClose}
+  type='success'
+  title='Launch Successful'
+  message='Your campaign is now live!'
+  icon={Rocket}
+/>
+```
+
+## Toast Notifications
+
+Servineo also uses `nextjs-toast-notify` for toast notifications:
+
+```typescript title="Toast Notification Examples"
+import { showToast } from "nextjs-toast-notify";
+
+const baseOptions = {
+  duration: 8000,
+  position: "top-center" as const,
+  transition: "bounceIn" as const,
+  sound: false,
+  progress: true,
+};
+
+// Success toast
+showToast.success(
+  "Operation completed successfully!",
+  baseOptions
+);
+
+// Error toast
+showToast.error(
+  "An error occurred. Please try again.",
+  baseOptions
+);
+
+// Warning toast
+showToast.warning(
+  "Your balance is low. Consider recharging.",
+  baseOptions
+);
+
+// Info toast
+showToast.info(
+  "New features available in settings.",
+  baseOptions
+);
+```
+
+### Toast Positions
+
+Available positions:
+- `top-left`
+- `top-center`
+- `top-right`
+- `bottom-left`
+- `bottom-center`
+- `bottom-right`
+
+### Toast Transitions
+
+```typescript
+transition: "bounceIn" | "slideIn" | "fadeIn" | "zoomIn"
+```
+
+## Notification State Management
+
+### Notification State Interface
+
+```typescript title="Notification State Type"
+interface NotificationState {
+  isOpen: boolean;
+  type: 'success' | 'error' | 'info' | 'warning';
+  title: string;
+  message: string;
+}
+
+const initialState: NotificationState = {
+  isOpen: false,
+  type: 'info',
+  title: '',
+  message: '',
+};
+```
+
+### Notification Helper Function
+
+```typescript title="Reusable Notification Helper"
+const notify = ({
+  type,
+  title,
+  message,
+}: Omit<NotificationState, 'isOpen'>) => {
+  setNotification({
+    isOpen: true,
+    type,
+    title,
+    message,
+  });
+};
+
+// Usage
+notify({
+  type: 'success',
+  title: 'Saved',
+  message: 'Your changes have been saved.',
+});
+```
+
+## Authentication Notifications
+
+In the login flow (`src/app/[locale]/login/page.tsx`), notifications provide feedback:
+
+```typescript title="Login Notifications"
+// Success
+setNotification({
+  isOpen: true,
+  type: 'success',
+  title: t('success.title'),
+  message: t('success.welcome', { name: user.name }),
+});
+
+// Error
+setNotification({
+  isOpen: true,
+  type: 'error',
+  title: t('errors.loginError'),
+  message: res.message || t('errors.invalidCredentials'),
+});
+
+// 2FA Required
+setNotification({
+  isOpen: true,
+  type: 'info',
+  title: 'Additional Verification Required',
+  message: 'Please complete two-factor authentication.',
+});
+```
+
+## Payment Notifications
+
+Payment operations trigger various notifications:
+
+### Low Balance Alerts
+
+```typescript title="Wallet Balance Notifications"
+const toastInfo = fixerData?.lowBalanceInfo?.toast;
+
+if (toastInfo?.shouldShow && toastInfo.level === "critical") {
+  showToast.error(
+    toastInfo.message || "Your balance is critically low. Please recharge.",
+    baseOptions
+  );
+}
+
+if (toastInfo?.shouldShow && toastInfo.level === "low") {
+  showToast.warning(
+    toastInfo.message || "Your balance is low. Consider recharging.",
+    baseOptions
+  );
+}
+```
+
+### Payment Success
+
+```typescript title="Payment Confirmation"
+setNotification({
+  isOpen: true,
+  type: 'success',
+  title: 'Payment Confirmed',
+  message: `Payment of ${amount} ${currency} has been processed successfully.`,
+});
+```
+
+## Styling & Animations
+
+### Modal Animations
+
+```css title="CSS Animations"
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-progress {
+  animation: progress linear;
+}
+```
+
+### Dark Mode Support
+
+Notifications automatically adapt to dark mode:
+
+```typescript
+titleColor: 'text-green-700 dark:text-green-400'
+```
+
+## Accessibility Features
+
+<CardGroup cols={2}>
+  <Card title="ARIA Roles" icon="universal-access">
+    Modal has `role="dialog"` and `aria-modal="true"`
+  </Card>
+  <Card title="Keyboard Support" icon="keyboard">
+    ESC key closes modal, focus trapped within
+  </Card>
+  <Card title="Screen Readers" icon="ear-listen">
+    Proper semantic HTML and labels
+  </Card>
+  <Card title="Focus Management" icon="bullseye">
+    Focus returns to trigger element on close
+  </Card>
+</CardGroup>
+
+### Screen Reader Announcements
+
+```tsx title="Accessible Notifications"
+<div 
+  role="dialog" 
+  aria-modal="true"
+  aria-labelledby="notification-title"
+  aria-describedby="notification-message"
+>
+  <h3 id="notification-title">{title}</h3>
+  <div id="notification-message">{message}</div>
+</div>
+```
+
+## Backdrop & Overlay
+
+The modal includes a backdrop overlay:
+
+```tsx title="Backdrop Component"
+<div
+  className='fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity'
+  onClick={handleCancel}
+  aria-hidden='true'
+/>
+```
+
+## Close Button
+
+Rotating close icon for visual feedback:
+
+```tsx title="Close Button"
+<button
+  onClick={handleCancel}
+  className='p-1.5 hover:bg-gray-100 rounded-lg transition-all hover:rotate-90 duration-300'
+  aria-label='Close'
+>
+  <X className='w-5 h-5' />
+</button>
+```
+
+<Tip>
+The close button rotates 90° on hover for a playful interaction.
+</Tip>
+
+## Confirmation Buttons
+
+For warnings and confirmations:
+
+```tsx title="Action Buttons"
+{(type === 'warning' || onConfirm) && (
+  <div className='mt-6 flex gap-3 justify-end'>
+    <button
+      onClick={handleCancel}
+      className='px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg'
+    >
+      {cancelText}
+    </button>
+    <button
+      onClick={handleConfirm}
+      className={`px-4 py-2 ${config.buttonColor} text-white rounded-lg shadow-sm`}
+    >
+      {confirmText}
+    </button>
+  </div>
+)}
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Be concise">
+    Keep titles under 5 words and messages under 2 sentences
+  </Step>
+  
+  <Step title="Use appropriate types">
+    Match notification type to the action severity
+  </Step>
+  
+  <Step title="Provide actionable feedback">
+    Tell users what happened and what to do next
+  </Step>
+  
+  <Step title="Don't overuse warnings">
+    Reserve warnings for truly important confirmations
+  </Step>
+  
+  <Step title="Test auto-close timing">
+    Ensure users have enough time to read messages
+  </Step>
+</Steps>
+
+## Common Patterns
+
+### API Error Handling
+
+```typescript title="Error Notification Pattern"
+try {
+  const result = await api.post('/endpoint', data);
+  
+  if (result.success) {
+    notify({
+      type: 'success',
+      title: 'Success',
+      message: result.message,
+    });
+  } else {
+    notify({
+      type: 'error',
+      title: 'Operation Failed',
+      message: result.error || 'An unknown error occurred.',
+    });
+  }
+} catch (err) {
+  notify({
+    type: 'error',
+    title: 'Connection Error',
+    message: err.message || 'Could not connect to server.',
+  });
+}
+```
+
+### Form Validation
+
+```typescript title="Validation Feedback"
+const handleSubmit = (data) => {
+  const errors = validate(data);
+  
+  if (errors.length > 0) {
+    notify({
+      type: 'warning',
+      title: 'Validation Error',
+      message: errors.join(', '),
+    });
+    return;
+  }
+  
+  // Submit form
+};
+```
+
+### Destructive Actions
+
+```typescript title="Delete Confirmation"
+const handleDelete = () => {
+  setNotification({
+    isOpen: true,
+    type: 'warning',
+    title: 'Confirm Deletion',
+    message: 'This cannot be undone. Are you sure?',
+  });
+};
+
+<NotificationModal
+  {...notification}
+  onConfirm={async () => {
+    await deleteItem();
+    notify({
+      type: 'success',
+      title: 'Deleted',
+      message: 'Item has been removed.',
+    });
+  }}
+  confirmText='Delete'
+  cancelText='Keep'
+/>
+```
+
+## Related Documentation
+
+- [Authentication](/features/authentication) - Login/signup feedback
+- [Payment System](/features/payment-system) - Payment notifications
+- [Multi-language Support](/features/multilingual) - Translated messages

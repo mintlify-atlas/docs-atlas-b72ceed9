@@ -1,0 +1,536 @@
+---
+title: 'Leaflet Maps Integration'
+description: 'Display interactive maps with appointment locations using Leaflet and React Leaflet'
+icon: 'map'
+---
+
+# Leaflet Maps Integration
+
+Servineo uses Leaflet with React Leaflet to display interactive maps showing appointment locations. This integration powers the admin dashboard's appointment map view.
+
+## Overview
+
+The map integration combines several libraries:
+
+- `leaflet` - Core mapping library
+- `react-leaflet` - React components for Leaflet
+- `leaflet-defaulticon-compatibility` - Fixes for default marker icons in webpack builds
+
+**Packages:**
+- `leaflet` v1.9.4
+- `react-leaflet` v5.0.0
+- `leaflet-defaulticon-compatibility` v0.1.2
+- `@types/leaflet` v1.9.21
+
+## Setup
+
+<Steps>
+  <Step title="Install Dependencies">
+    The required packages are already included:
+    
+    ```bash
+    npm install leaflet react-leaflet leaflet-defaulticon-compatibility
+    npm install -D @types/leaflet
+    ```
+  </Step>
+
+  <Step title="Import Leaflet CSS">
+    Import the Leaflet stylesheet in your component:
+    
+    ```typescript
+    import 'leaflet/dist/leaflet.css';
+    ```
+  </Step>
+
+  <Step title="Configure Default Icons">
+    Fix icon paths for webpack/Next.js builds.
+  </Step>
+</Steps>
+
+## Implementation
+
+### Basic Map Component
+
+Here's the complete implementation from the admin dashboard:
+
+```tsx src/Components/Statistics-panel/admin-map.tsx
+'use client';
+
+import React, { useEffect } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+
+// Import marker images
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+export interface Appointment {
+  id: string;
+  fixerName: string;
+  requesterName: string;
+  date: string;
+  status: 'booked' | 'cancelled' | string;
+  lat: number;
+  lng: number;
+  service?: string;
+}
+
+// Configure Leaflet icons
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+
+L.Icon.Default.mergeOptions({
+  iconUrl: markerIcon.src,
+  iconRetinaUrl: markerIcon2x.src,
+  shadowUrl: markerShadow.src,
+});
+
+const formatBoDate = (isoString: string) => {
+  if (!isoString) return 'Fecha pendiente';
+  const date = new Date(isoString);
+  return new Intl.DateTimeFormat('es-BO', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+};
+
+// Component to auto-fit bounds
+function FitBounds({ appointments }: { appointments: Appointment[] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (appointments.length > 0) {
+      const bounds = L.latLngBounds(
+        appointments.map((app) => [app.lat, app.lng])
+      );
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [appointments, map]);
+
+  return null;
+}
+
+// Custom marker icons
+const bookedIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+const cancelledIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+interface AdminMapProps {
+  appointments: Appointment[];
+}
+
+const AdminMap: React.FC<AdminMapProps> = ({ appointments }) => {
+  return (
+    <div className='h-full w-full relative z-0'>
+      <MapContainer 
+        center={[-17.39, -66.15]} 
+        zoom={13} 
+        className='h-full w-full rounded-lg'
+      >
+        <TileLayer
+          url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+          attribution='&copy; OpenStreetMap contributors'
+        />
+        
+        <FitBounds appointments={appointments} />
+
+        {appointments.map((appointment) => (
+          <Marker
+            key={appointment.id}
+            position={[appointment.lat, appointment.lng]}
+            icon={appointment.status === 'booked' ? bookedIcon : cancelledIcon}
+          >
+            <Popup>
+              <div className='text-sm text-gray-800 min-w-[200px]'>
+                <div className='mb-2 pb-1 border-b border-gray-200'>
+                  <span
+                    className={`font-bold text-xs uppercase ${
+                      appointment.status === 'booked' 
+                        ? 'text-green-600' 
+                        : 'text-red-600'
+                    }`}
+                  >
+                    {appointment.status === 'booked' ? '• Cita Activa' : '• Cancelada'}
+                  </span>
+                </div>
+                <p className='mb-1'>
+                  <span className='font-bold text-blue-600'>Fixer:</span>{' '}
+                  {appointment.fixerName}
+                </p>
+                <p className='mb-1'>
+                  <span className='font-bold text-gray-600'>Requester:</span>{' '}
+                  {appointment.requesterName}
+                </p>
+                <p className='mb-1'>
+                  <span className='font-bold text-gray-600'>Fecha:</span>{' '}
+                  {formatBoDate(appointment.date)}
+                </p>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+      </MapContainer>
+    </div>
+  );
+};
+
+export default AdminMap;
+```
+
+## Key Components
+
+### MapContainer
+
+The main container for the map:
+
+```tsx
+<MapContainer 
+  center={[-17.39, -66.15]}  // [latitude, longitude]
+  zoom={13}                   // Initial zoom level (1-18)
+  className='h-full w-full'
+>
+  {/* Map content */}
+</MapContainer>
+```
+
+<Note>
+  The center coordinates `[-17.39, -66.15]` represent Cochabamba, Bolivia. Adjust these for your region.
+</Note>
+
+### TileLayer
+
+Provides the map tiles (imagery):
+
+```tsx
+<TileLayer
+  url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+  attribution='&copy; OpenStreetMap contributors'
+/>
+```
+
+#### Alternative Tile Providers
+
+```tsx
+// Satellite imagery
+<TileLayer url='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}' />
+
+// Dark mode
+<TileLayer url='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' />
+
+// Terrain
+<TileLayer url='https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}{r}.png' />
+```
+
+### Markers
+
+Display points on the map:
+
+```tsx
+<Marker 
+  position={[lat, lng]}
+  icon={customIcon}
+>
+  <Popup>
+    {/* Popup content */}
+  </Popup>
+</Marker>
+```
+
+### Custom Icons
+
+Create custom marker icons:
+
+```typescript
+const customIcon = new L.Icon({
+  iconUrl: '/path/to/icon.png',
+  shadowUrl: '/path/to/shadow.png',
+  iconSize: [25, 41],        // Size of the icon
+  iconAnchor: [12, 41],      // Point that corresponds to marker's location
+  popupAnchor: [1, -34],     // Point where popup opens relative to iconAnchor
+  shadowSize: [41, 41],      // Size of the shadow
+});
+```
+
+## Map Hooks
+
+### useMap Hook
+
+Access the map instance to control it programmatically:
+
+```tsx
+import { useMap } from 'react-leaflet';
+
+function MapController() {
+  const map = useMap();
+  
+  useEffect(() => {
+    // Fly to a location
+    map.flyTo([lat, lng], 15);
+    
+    // Fit bounds
+    const bounds = L.latLngBounds([[lat1, lng1], [lat2, lng2]]);
+    map.fitBounds(bounds, { padding: [50, 50] });
+    
+    // Set max bounds
+    map.setMaxBounds(bounds);
+  }, [map]);
+  
+  return null;
+}
+```
+
+### Auto-Fit Bounds
+
+Automatically adjust the map to show all markers:
+
+```tsx
+function FitBounds({ appointments }: { appointments: Appointment[] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (appointments.length > 0) {
+      const bounds = L.latLngBounds(
+        appointments.map((app) => [app.lat, app.lng])
+      );
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [appointments, map]);
+
+  return null;
+}
+
+// Use in MapContainer
+<MapContainer>
+  <FitBounds appointments={appointments} />
+</MapContainer>
+```
+
+## Icon Configuration
+
+### Fix Default Icons
+
+<Warning>
+  Leaflet's default icons don't work out of the box with webpack/Next.js. You must configure them manually.
+</Warning>
+
+```typescript
+import L from 'leaflet';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// Remove default icon URL detection
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+
+// Set new default icons
+L.Icon.Default.mergeOptions({
+  iconUrl: markerIcon.src,
+  iconRetinaUrl: markerIcon2x.src,
+  shadowUrl: markerShadow.src,
+});
+```
+
+## TypeScript Support
+
+Create type definitions for enhanced type safety:
+
+```typescript src/types/leaflet.d.ts
+declare namespace L {
+  interface LatLng {
+    lat: number;
+    lng: number;
+  }
+
+  interface LeafletEvent {
+    latlng: LatLng;
+  }
+
+  interface Map {
+    setView(center: LatLng | [number, number], zoom: number): this;
+    on(type: string, fn: (e: LeafletEvent) => void): this;
+    remove(): void;
+    removeLayer(layer: Layer): this;
+    fitBounds(bounds: LatLngBounds, options?: FitBoundsOptions): this;
+  }
+
+  function latLngBounds(
+    corner1: LatLng | [number, number],
+    corner2: LatLng | [number, number]
+  ): LatLngBounds;
+}
+```
+
+## Styling
+
+### Map Container Styling
+
+```css
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  border-radius: 0.5rem;
+  z-index: 0;
+}
+```
+
+### Popup Styling
+
+Customize popup appearance:
+
+```tsx
+<Popup className="custom-popup">
+  <div className="text-sm">
+    {/* Content */}
+  </div>
+</Popup>
+```
+
+```css
+.custom-popup .leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.custom-popup .leaflet-popup-tip {
+  background: white;
+}
+```
+
+## Common Use Cases
+
+### Click to Add Marker
+
+```tsx
+function MapClickHandler({ onMapClick }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    map.on('click', (e) => {
+      onMapClick(e.latlng);
+    });
+    
+    return () => {
+      map.off('click');
+    };
+  }, [map, onMapClick]);
+  
+  return null;
+}
+```
+
+### Marker Clustering
+
+For many markers, use clustering:
+
+```bash
+npm install react-leaflet-cluster
+```
+
+```tsx
+import MarkerClusterGroup from 'react-leaflet-cluster';
+
+<MapContainer>
+  <MarkerClusterGroup>
+    {appointments.map(app => (
+      <Marker key={app.id} position={[app.lat, app.lng]} />
+    ))}
+  </MarkerClusterGroup>
+</MapContainer>
+```
+
+### Geolocation
+
+Get user's current location:
+
+```tsx
+function LocationButton() {
+  const map = useMap();
+  
+  const handleLocate = () => {
+    map.locate().on('locationfound', (e) => {
+      map.flyTo(e.latlng, 15);
+      L.marker(e.latlng).addTo(map)
+        .bindPopup('You are here')
+        .openPopup();
+    });
+  };
+  
+  return (
+    <button onClick={handleLocate}>
+      Find My Location
+    </button>
+  );
+}
+```
+
+## Performance Optimization
+
+<Info>
+  - Limit the number of markers (use clustering for 100+ markers)
+  - Debounce map events (pan, zoom)
+  - Use `useMemo` for marker generation
+  - Lazy load the map component
+</Info>
+
+```tsx
+import dynamic from 'next/dynamic';
+
+const AdminMap = dynamic(
+  () => import('@/Components/Statistics-panel/admin-map'),
+  { ssr: false } // Disable SSR for Leaflet
+);
+```
+
+## Troubleshooting
+
+### Map Not Displaying
+
+1. Ensure Leaflet CSS is imported:
+   ```typescript
+   import 'leaflet/dist/leaflet.css';
+   ```
+
+2. Set explicit height on container:
+   ```tsx
+   <div style={{ height: '500px' }}>
+     <MapContainer />
+   </div>
+   ```
+
+### Icons Not Showing
+
+Configure icon paths as shown in the Icon Configuration section.
+
+### Server-Side Rendering Issues
+
+Disable SSR for map components:
+
+```tsx
+const Map = dynamic(() => import('./Map'), { ssr: false });
+```
+
+## Related Resources
+
+- [Leaflet Documentation](https://leafletjs.com/reference.html)
+- [React Leaflet](https://react-leaflet.js.org/)
+- [OpenStreetMap](https://www.openstreetmap.org/)
+- [Leaflet Plugins](https://leafletjs.com/plugins.html)

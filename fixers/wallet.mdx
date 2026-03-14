@@ -1,0 +1,572 @@
+---
+title: Digital Wallet & Payments
+description: Complete guide to managing your fixer wallet, payments, and earnings
+---
+
+# Digital Wallet & Payments
+
+Your Servineo digital wallet is the central hub for managing payments, tracking earnings, and withdrawing funds from completed jobs.
+
+## Wallet Overview
+
+The Fixer Wallet provides:
+
+- Real-time balance tracking
+- Transaction history
+- Payment processing
+- Bank account management
+- Earnings analytics
+- Withdrawal functionality
+
+<Info>
+Access your wallet at `/payment/FixerWallet?fixerId={YOUR_FIXER_ID}`
+</Info>
+
+## Wallet Dashboard
+
+### Main Components
+
+<CardGroup cols={3}>
+  <Card title="Current Balance" icon="wallet">
+    Available funds in your wallet (in Bolivianos)
+  </Card>
+  
+  <Card title="Total Earned" icon="chart-line">
+    Cumulative earnings from all completed jobs
+  </Card>
+  
+  <Card title="Completed Jobs" icon="check-circle">
+    Total number of successfully finished jobs
+  </Card>
+</CardGroup>
+
+### Balance Display
+
+```tsx
+<div className="wallet-card">
+  <Wallet size={44} />
+  <span>Saldo Actual</span>
+  <h2>Bs. {fixerData.saldoActual.toFixed(2)}</h2>
+</div>
+```
+
+Your balance updates in real-time as:
+- Clients make payments
+- Platform fees are deducted
+- Withdrawals are processed
+
+## Payment Center
+
+The Payment Center (`centro-de-pagos`) is your gateway to financial operations:
+
+### Accessing Payment Center
+
+```typescript
+router.push(`/payment/centro-de-pagos?fixerId=${fixerId}`);
+```
+
+### Payment Center Features
+
+<Steps>
+  <Step title="Wallet Overview">
+    View balance, earnings, and job statistics
+  </Step>
+  
+  <Step title="Quick Actions">
+    Access wallet, bank account, and invoices
+  </Step>
+  
+  <Step title="Recent Earnings">
+    Modal showing detailed earning breakdown
+  </Step>
+  
+  <Step title="Notifications">
+    Low balance alerts and payment notifications
+  </Step>
+</Steps>
+
+### Payment Center Data Structure
+
+```typescript
+interface FixerData {
+  saldoActual: number;          // Current balance
+  totalGanado: number;          // Total earned
+  trabajosCompletados: number;  // Completed jobs count
+  fixerId: string;
+  isTestData?: boolean;
+  
+  lowBalanceAlert?: {
+    type: 'none' | 'low' | 'critical';
+  };
+  
+  lowBalanceInfo?: {
+    balance: number;
+    currency: string;
+    lowBalanceThreshold: number;
+    lastLowBalanceNotification?: Date;
+    
+    flags?: {
+      needsLowAlert?: boolean;
+      needsCriticalAlert?: boolean;
+      cooldownUntil?: Date | null;
+    };
+    
+    toast?: {
+      shouldShow: boolean;
+      level: 'low' | 'critical' | 'none';
+      message: string;
+    };
+  };
+}
+```
+
+## Low Balance Alerts
+
+The system monitors your balance and sends alerts:
+
+### Alert Levels
+
+<CardGroup cols={3}>
+  <Card title="Normal" icon="check-circle">
+    Balance above threshold - no alerts
+  </Card>
+  
+  <Card title="Low" icon="exclamation-triangle">
+    Balance below threshold - warning toast
+  </Card>
+  
+  <Card title="Critical" icon="exclamation-circle">
+    Negative or critically low - urgent toast
+  </Card>
+</CardGroup>
+
+### Alert Toast Display
+
+```typescript
+useEffect(() => {
+  const toastInfo = fixerData?.lowBalanceInfo?.toast;
+  
+  if (toastInfo?.shouldShow) {
+    if (toastInfo.level === 'critical') {
+      showToast.error(toastInfo.message, {
+        duration: 8000,
+        position: 'top-center'
+      });
+    } else if (toastInfo.level === 'low') {
+      showToast.warning(toastInfo.message, {
+        duration: 8000,
+        position: 'top-center'
+      });
+    }
+  }
+}, [fixerData?.lowBalanceInfo?.toast]);
+```
+
+<Warning>
+Maintain a positive balance to continue receiving job requests. Low balance may limit your visibility on the platform.
+</Warning>
+
+## Bank Account Management
+
+Link your bank account to withdraw earnings:
+
+### Accessing Bank Account Settings
+
+```typescript
+router.push(`/payment/cuenta-bancaria?fixerId=${fixerId}`);
+```
+
+### Adding Bank Account
+
+<Steps>
+  <Step title="Navigate to Account Settings">
+    Click "Mi cuenta bancaria" in Payment Center
+  </Step>
+  
+  <Step title="Enter Bank Details">
+    Provide bank name, account number, and account type
+  </Step>
+  
+  <Step title="Verify Information">
+    Double-check all details before submitting
+  </Step>
+  
+  <Step title="Save Account">
+    Account is verified and linked to your profile
+  </Step>
+</Steps>
+
+### Bank Account Information
+
+```typescript
+interface BankAccount {
+  bankName: string;
+  accountNumber: string;      // CBU or account number
+  accountType: 'savings' | 'checking';
+  accountHolder: string;
+  verified: boolean;
+}
+```
+
+<Note>
+Bank account verification typically takes 24-48 hours. You can add your account information immediately, but withdrawals require verification.
+</Note>
+
+## Receiving Payments
+
+Payments are processed based on your configured payment methods:
+
+### Payment Methods
+
+<CardGroup cols={3}>
+  <Card title="Cash" icon="money-bill">
+    Direct cash payments from clients
+  </Card>
+  
+  <Card title="QR" icon="qrcode">
+    QR code-based digital payments
+  </Card>
+  
+  <Card title="Credit Card" icon="credit-card">
+    Card payments via Stripe integration
+  </Card>
+</CardGroup>
+
+### Cash Payment Flow
+
+```typescript
+// Create cash payment
+const createCashPayment = async (dto: CreateCashPaymentDTO) => {
+  const response = await fetch('/api/payments/cash', {
+    method: 'POST',
+    body: JSON.stringify({
+      jobId: dto.jobId,
+      amount: dto.amount,
+      fixerId: dto.fixerId,
+      paymentMethods: 'cash'
+    })
+  });
+  
+  return response.json();
+};
+```
+
+### Confirming Cash Payments
+
+For cash payments, you must confirm receipt:
+
+<Steps>
+  <Step title="Client Generates Code">
+    Client creates a payment code in their app
+  </Step>
+  
+  <Step title="Collect Cash">
+    Receive cash payment from client
+  </Step>
+  
+  <Step title="Enter Code">
+    Input the payment code in your app
+  </Step>
+  
+  <Step title="Confirm Payment">
+    Click "Confirmar pago" to complete transaction
+  </Step>
+</Steps>
+
+```typescript
+const confirmPayment = async (paymentId: string) => {
+  const response = await fetch(`/api/lab/payments/${paymentId}/confirm`, {
+    method: 'POST'
+  });
+  
+  if (response.ok) {
+    // Payment confirmed, funds added to wallet
+  }
+};
+```
+
+<Warning>
+Never confirm a cash payment before actually receiving the money. Payment confirmations are irreversible.
+</Warning>
+
+### QR Payments
+
+QR payments are processed automatically:
+
+1. Client scans your QR code
+2. Payment processes through payment gateway
+3. Funds deposit to your wallet automatically
+4. You receive notification of payment
+
+### Card Payments
+
+Credit card payments via Stripe:
+
+```typescript
+interface CardPayment {
+  amount: number;
+  currency: 'BOB';
+  jobId: string;
+  fixerId: string;
+  paymentMethodId: string;  // Stripe payment method
+}
+```
+
+## Wallet Recharge
+
+Add funds to your wallet for platform fees or services:
+
+### Recharge Methods
+
+<CardGroup cols={2}>
+  <Card title="Bank Transfer" icon="building">
+    Transfer from your linked bank account
+  </Card>
+  
+  <Card title="Credit Card" icon="credit-card">
+    Add funds using a credit/debit card
+  </Card>
+</CardGroup>
+
+### Recharge Process
+
+```typescript
+// Access recharge page
+router.push('/payment/FixerWallet/recarga');
+
+// Create payment intent
+const createPaymentIntent = async (amount: number) => {
+  const response = await fetch(
+    `${BACKEND_URL}/api/payments/intent`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ amount, currency: 'BOB' })
+    }
+  );
+  
+  return response.json();
+};
+```
+
+### Bank Transfer Recharge
+
+<Steps>
+  <Step title="Select Amount">
+    Choose how much to add to your wallet
+  </Step>
+  
+  <Step title="Initiate Transfer">
+    Confirm transfer from your bank account
+  </Step>
+  
+  <Step title="Processing">
+    Transfer processes (typically 1-3 business days)
+  </Step>
+  
+  <Step title="Funds Available">
+    Balance updates when transfer completes
+  </Step>
+</Steps>
+
+## Earnings & Invoices
+
+### Recent Earnings Modal
+
+View detailed earning breakdown:
+
+```tsx
+<button onClick={() => setShowEarningsModal(true)}>
+  Mis Ganancias
+</button>
+
+{showEarningsModal && (
+  <RecentEarningsModal
+    onClose={() => setShowEarningsModal(false)}
+    fixerId={fixerId}
+  />
+)}
+```
+
+**Earnings Details:**
+- Job-by-job breakdown
+- Payment dates
+- Payment methods used
+- Platform fees deducted
+- Net earnings
+
+### Invoice Management
+
+Access your invoices:
+
+```typescript
+router.push('/payment/facturas');
+```
+
+**Invoice Features:**
+- Auto-generated invoices for each job
+- PDF download capability
+- Tax information included
+- Payment status tracking
+
+<Info>
+Invoices are automatically generated when you complete a job and receive payment.
+</Info>
+
+## Withdrawals
+
+Withdraw funds from your wallet to your bank account:
+
+### Withdrawal Requirements
+
+- Minimum withdrawal: Bs. 50.00
+- Verified bank account required
+- Positive balance above minimum
+- No pending disputes
+
+### Withdrawal Process
+
+<Steps>
+  <Step title="Request Withdrawal">
+    Enter amount to withdraw from wallet
+  </Step>
+  
+  <Step title="Verify Details">
+    Confirm bank account and amount
+  </Step>
+  
+  <Step title="Process">
+    Withdrawal request submitted for processing
+  </Step>
+  
+  <Step title="Transfer">
+    Funds transfer to bank (1-3 business days)
+  </Step>
+</Steps>
+
+```typescript
+const requestWithdrawal = async (amount: number) => {
+  const response = await fetch('/api/payments/withdraw', {
+    method: 'POST',
+    body: JSON.stringify({
+      fixerId,
+      amount,
+      bankAccountId
+    })
+  });
+  
+  return response.json();
+};
+```
+
+<Note>
+Withdrawals are processed on business days only. Requests submitted on weekends or holidays process on the next business day.
+</Note>
+
+## Transaction History
+
+View complete payment history:
+
+### Transaction Types
+
+- **Payment Received**: Money from completed jobs
+- **Withdrawal**: Funds transferred to bank
+- **Recharge**: Added funds to wallet
+- **Platform Fee**: Service fees deducted
+- **Refund**: Money returned to client
+
+### Transaction Details
+
+```typescript
+interface Transaction {
+  id: string;
+  type: 'payment' | 'withdrawal' | 'recharge' | 'fee' | 'refund';
+  amount: number;
+  currency: 'BOB';
+  date: Date;
+  status: 'completed' | 'pending' | 'failed';
+  description: string;
+  relatedJobId?: string;
+}
+```
+
+## Payment Analytics
+
+Track your financial performance:
+
+### Key Metrics
+
+<CardGroup cols={2}>
+  <Card title="Average Job Value" icon="dollar-sign">
+    Mean payment per completed job
+  </Card>
+  
+  <Card title="Monthly Earnings" icon="calendar">
+    Total earnings this month
+  </Card>
+  
+  <Card title="Payment Methods" icon="chart-pie">
+    Breakdown by cash/QR/card
+  </Card>
+  
+  <Card title="Growth Trend" icon="trending-up">
+    Month-over-month earnings growth
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Balance not updating">
+    Payment processing can take 5-10 minutes. If balance doesn't update after 1 hour, check transaction history or contact support.
+  </Accordion>
+  
+  <Accordion title="Can't link bank account">
+    Ensure all bank details are correct. Account number must match bank records exactly.
+  </Accordion>
+  
+  <Accordion title="Withdrawal failed">
+    Check that you have sufficient balance and a verified bank account. Ensure account is active and accepting deposits.
+  </Accordion>
+  
+  <Accordion title="Missing payment">
+    Verify with client that payment was sent. Check transaction history for pending payments.
+  </Accordion>
+  
+  <Accordion title="Low balance alert not clearing">
+    Recharge your wallet above the threshold amount (typically Bs. 100). Alert clears within 15 minutes.
+  </Accordion>
+</AccordionGroup>
+
+## Security Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Never Share Codes" icon="shield">
+    Keep payment confirmation codes private
+  </Card>
+  
+  <Card title="Verify Amounts" icon="check-double">
+    Always confirm payment amounts before accepting
+  </Card>
+  
+  <Card title="Secure Banking" icon="lock">
+    Use strong passwords for linked bank accounts
+  </Card>
+  
+  <Card title="Monitor Activity" icon="eye">
+    Regularly review transaction history for anomalies
+  </Card>
+</CardGroup>
+
+<Warning>
+If you notice any unauthorized transactions, immediately contact Servineo support and your bank.
+</Warning>
+
+## Next Steps
+
+- Learn about [job offer management](/fixers/job-offers)
+- Set up your [dashboard](/fixers/dashboard)
+- Manage your [calendar and availability](/fixers/calendar)
+
+<Tip>
+Set up automatic withdrawals to transfer earnings to your bank account weekly. This ensures steady cash flow and simplifies accounting.
+</Tip>

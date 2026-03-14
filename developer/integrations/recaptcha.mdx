@@ -1,0 +1,640 @@
+---
+title: 'reCAPTCHA Integration'
+description: 'Protect your application from bots and spam using Google reCAPTCHA v2'
+icon: 'shield-check'
+---
+
+# reCAPTCHA Integration
+
+Servineo integrates Google reCAPTCHA v2 to protect forms from automated abuse and spam. This integration is used in registration flows and payment processes.
+
+## Overview
+
+The reCAPTCHA integration uses the official React wrapper for Google reCAPTCHA:
+
+**Package:** `react-google-recaptcha` v3.1.0
+
+## Setup
+
+<Steps>
+  <Step title="Install Dependencies">
+    The required package is already included:
+    
+    ```bash
+    npm install react-google-recaptcha
+    npm install -D @types/react-google-recaptcha
+    ```
+  </Step>
+
+  <Step title="Get reCAPTCHA Keys">
+    Register your site at [Google reCAPTCHA Admin](https://www.google.com/recaptcha/admin) to get:
+    - Site key (public)
+    - Secret key (private - backend only)
+    
+    <Note>
+      Choose reCAPTCHA v2 with "I'm not a robot" checkbox.
+    </Note>
+  </Step>
+
+  <Step title="Configure Environment Variables">
+    Add your site key to environment variables:
+    
+    ```bash .env.local
+    NEXT_PUBLIC_RECAPTCHA_SITE_KEY=your_site_key_here
+    NEXT_PUBLIC_API_URL=https://your-api-domain.com
+    ```
+    
+    <Warning>
+      Never expose your secret key in client-side code. Store it securely on your backend.
+    </Warning>
+  </Step>
+</Steps>
+
+## Implementation
+
+### Basic reCAPTCHA Component
+
+Here's the complete implementation from the registration flow:
+
+```tsx src/Components/requester/botonRegistro/recaptcha.tsx
+'use client';
+
+import { useRef } from 'react';
+import ReCAPTCHA from 'react-google-recaptcha';
+
+interface ReCaptchaFormProps {
+  onVerified?: (success: boolean) => void;
+}
+
+const ReCaptchaForm: React.FC<ReCaptchaFormProps> = ({ onVerified }) => {
+  const captchaRef = useRef<ReCAPTCHA>(null);
+
+  const verifyBackend = async (token: string) => {
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/signUp/verify-recaptcha`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        }
+      );
+
+      const data = await res.json();
+      onVerified?.(data.success);
+    } catch (err) {
+      console.error('Error comunicando con backend:', err);
+      onVerified?.(false);
+    }
+  };
+
+  return (
+    <div>
+      <ReCAPTCHA
+        ref={captchaRef}
+        sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!}
+        onChange={(token) => {
+          if (token) {
+            verifyBackend(token);
+          }
+        }}
+        onExpired={() => {
+          onVerified?.(false);
+          captchaRef.current?.reset();
+        }}
+      />
+    </div>
+  );
+};
+
+export default ReCaptchaForm;
+```
+
+### Integration in Forms
+
+Integrate reCAPTCHA into your forms:
+
+```tsx
+import { useState } from 'react';
+import ReCAPTCHA from 'react-google-recaptcha';
+
+function RegistrationForm() {
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const [isVerified, setIsVerified] = useState(false);
+
+  const handleRecaptchaChange = (token: string | null) => {
+    setRecaptchaToken(token);
+    if (token) {
+      // Verify with backend
+      verifyRecaptcha(token);
+    }
+  };
+
+  const verifyRecaptcha = async (token: string) => {
+    const response = await fetch('/api/verify-recaptcha', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    
+    const data = await response.json();
+    setIsVerified(data.success);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!isVerified) {
+      alert('Please complete the reCAPTCHA verification');
+      return;
+    }
+    
+    // Submit form
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* Form fields */}
+      
+      <ReCAPTCHA
+        sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!}
+        onChange={handleRecaptchaChange}
+        onExpired={() => {
+          setRecaptchaToken(null);
+          setIsVerified(false);
+        }}
+      />
+      
+      <button type="submit" disabled={!isVerified}>
+        Submit
+      </button>
+    </form>
+  );
+}
+```
+
+### Payment Flow Integration
+
+reCAPTCHA in payment processing:
+
+```tsx src/app/[locale]/payment/components/PaymentDemoAdaptado.tsx
+import ReCAPTCHA from 'react-google-recaptcha';
+import { AnimatePresence, motion } from 'framer-motion';
+
+const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '';
+
+function PaymentModal() {
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const [securityModalTarget, setSecurityModalTarget] = useState<'card' | 'qr' | null>(null);
+
+  const handleRecaptchaChange = (token: string | null) => {
+    setRecaptchaToken(token);
+    
+    if (token && securityModalTarget === 'qr') {
+      // Proceed to QR payment
+      handleGoToQR(token);
+      setSecurityModalTarget(null);
+    }
+  };
+
+  const startCardFlow = () => {
+    setRecaptchaToken(null);
+    setSecurityModalTarget('card');
+  };
+
+  return (
+    <div>
+      {/* Payment method selection */}
+      <button onClick={startCardFlow}>Pay with Card</button>
+      
+      {/* Security modal with reCAPTCHA */}
+      <AnimatePresence>
+        {securityModalTarget === 'card' && (
+          <motion.div className="modal">
+            <h3>Security Verification</h3>
+            <p>Complete the reCAPTCHA to proceed.</p>
+            
+            <ReCAPTCHA
+              sitekey={RECAPTCHA_SITE_KEY}
+              onChange={handleRecaptchaChange}
+            />
+            
+            {!recaptchaToken && (
+              <div className="overlay">
+                <p>Please complete the verification</p>
+              </div>
+            )}
+            
+            <button 
+              disabled={!recaptchaToken}
+              onClick={() => recaptchaToken && processPayment(recaptchaToken)}
+            >
+              Proceed to Payment
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+```
+
+## Verification Flow
+
+<Steps>
+  <Step title="User Completes Challenge">
+    The user checks the "I'm not a robot" checkbox or completes the image challenge.
+  </Step>
+
+  <Step title="Get Token">
+    reCAPTCHA returns a token via the `onChange` callback:
+    
+    ```typescript
+    onChange={(token) => {
+      if (token) {
+        verifyWithBackend(token);
+      }
+    }}
+    ```
+  </Step>
+
+  <Step title="Send to Backend">
+    Send the token to your backend for verification:
+    
+    ```typescript
+    const response = await fetch('/api/verify-recaptcha', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+    ```
+  </Step>
+
+  <Step title="Verify on Backend">
+    Your backend verifies the token with Google's API.
+  </Step>
+
+  <Step title="Return Result">
+    Backend returns verification result to the client.
+  </Step>
+</Steps>
+
+## Backend Verification
+
+Your backend must verify the token with Google:
+
+### Node.js/Express Example
+
+```javascript
+const axios = require('axios');
+
+app.post('/api/verify-recaptcha', async (req, res) => {
+  const { token } = req.body;
+  const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+
+  try {
+    const response = await axios.post(
+      'https://www.google.com/recaptcha/api/siteverify',
+      null,
+      {
+        params: {
+          secret: secretKey,
+          response: token,
+        },
+      }
+    );
+
+    const { success, score, 'error-codes': errorCodes } = response.data;
+
+    if (success) {
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ 
+        success: false, 
+        errors: errorCodes 
+      });
+    }
+  } catch (error) {
+    console.error('reCAPTCHA verification error:', error);
+    res.status(500).json({ success: false });
+  }
+});
+```
+
+### Next.js API Route Example
+
+```typescript app/api/verify-recaptcha/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  const { token } = await request.json();
+  const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+
+  const verificationUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${token}`;
+
+  try {
+    const response = await fetch(verificationUrl, {
+      method: 'POST',
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      return NextResponse.json({ success: true });
+    } else {
+      return NextResponse.json(
+        { success: false, errors: data['error-codes'] },
+        { status: 400 }
+      );
+    }
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: 'Verification failed' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+## Component Props
+
+### ReCAPTCHA Component
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `sitekey` | string | Yes | Your reCAPTCHA site key |
+| `onChange` | (token: string or null) => void | No | Called when verification completes |
+| `onExpired` | () => void | No | Called when token expires |
+| `onErrored` | () => void | No | Called on verification error |
+| `size` | 'compact' or 'normal' or 'invisible' | No | Widget size (default: 'normal') |
+| `theme` | 'light' or 'dark' | No | Widget theme (default: 'light') |
+| `ref` | RefObject | No | Ref to access component methods |
+
+## Using Refs
+
+Access reCAPTCHA methods via ref:
+
+```tsx
+import { useRef } from 'react';
+import ReCAPTCHA from 'react-google-recaptcha';
+
+function MyComponent() {
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
+
+  const handleReset = () => {
+    recaptchaRef.current?.reset();
+  };
+
+  const handleExecute = async () => {
+    const token = await recaptchaRef.current?.executeAsync();
+    console.log('Token:', token);
+  };
+
+  const getValue = () => {
+    const value = recaptchaRef.current?.getValue();
+    console.log('Current value:', value);
+  };
+
+  return (
+    <div>
+      <ReCAPTCHA
+        ref={recaptchaRef}
+        sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!}
+      />
+      
+      <button onClick={handleReset}>Reset</button>
+      <button onClick={handleExecute}>Execute</button>
+      <button onClick={getValue}>Get Value</button>
+    </div>
+  );
+}
+```
+
+## Styling
+
+### Custom Container
+
+```tsx
+<div className="recaptcha-container">
+  <ReCAPTCHA
+    sitekey={siteKey}
+    theme="dark"
+    size="compact"
+  />
+</div>
+```
+
+```css
+.recaptcha-container {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+/* Override reCAPTCHA styles if needed */
+.recaptcha-container > div {
+  transform: scale(0.9);
+  transform-origin: center;
+}
+```
+
+### Responsive Sizing
+
+```tsx
+const [isMobile, setIsMobile] = useState(false);
+
+useEffect(() => {
+  setIsMobile(window.innerWidth < 768);
+}, []);
+
+<ReCAPTCHA
+  sitekey={siteKey}
+  size={isMobile ? 'compact' : 'normal'}
+/>
+```
+
+## Error Handling
+
+<Warning>
+  Always handle reCAPTCHA errors gracefully to prevent blocking users.
+</Warning>
+
+```tsx
+const [recaptchaError, setRecaptchaError] = useState<string | null>(null);
+
+<ReCAPTCHA
+  sitekey={siteKey}
+  onChange={(token) => {
+    if (token) {
+      setRecaptchaError(null);
+      verifyToken(token);
+    }
+  }}
+  onExpired={() => {
+    setRecaptchaError('reCAPTCHA expired. Please verify again.');
+  }}
+  onErrored={() => {
+    setRecaptchaError('reCAPTCHA error. Please try again.');
+  }}
+/>
+
+{recaptchaError && (
+  <div className="error-message">
+    {recaptchaError}
+  </div>
+)}
+```
+
+## Token Expiration
+
+reCAPTCHA tokens expire after 2 minutes:
+
+```tsx
+const handleExpired = () => {
+  console.log('Token expired');
+  setRecaptchaToken(null);
+  setIsVerified(false);
+  
+  // Optionally reset the widget
+  captchaRef.current?.reset();
+};
+
+<ReCAPTCHA
+  ref={captchaRef}
+  sitekey={siteKey}
+  onExpired={handleExpired}
+/>
+```
+
+## Invisible reCAPTCHA
+
+For invisible reCAPTCHA (programmatic execution):
+
+```tsx
+import { useRef } from 'react';
+import ReCAPTCHA from 'react-google-recaptcha';
+
+function InvisibleRecaptcha() {
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Execute invisible reCAPTCHA
+    const token = await recaptchaRef.current?.executeAsync();
+    
+    if (token) {
+      // Verify and submit form
+      await verifyAndSubmit(token);
+      
+      // Reset for next use
+      recaptchaRef.current?.reset();
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* Form fields */}
+      
+      <ReCAPTCHA
+        ref={recaptchaRef}
+        size="invisible"
+        sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!}
+      />
+      
+      <button type="submit">Submit</button>
+    </form>
+  );
+}
+```
+
+## Security Best Practices
+
+<Info>
+  - Always verify tokens on the backend, never trust client-side verification
+  - Store the secret key securely (never in client code)
+  - Implement rate limiting on verification endpoints
+  - Use HTTPS in production
+  - Handle token expiration properly
+  - Consider implementing v3 for invisible protection
+</Info>
+
+## Testing
+
+### Development Testing
+
+For local development, you can:
+
+1. Use localhost domain in reCAPTCHA admin console
+2. Add `127.0.0.1` to authorized domains
+3. Test with actual reCAPTCHA challenges
+
+### Test Keys
+
+Google provides test keys that always validate:
+
+```bash
+# These keys will always pass (for testing only)
+Site key: 6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI
+Secret key: 6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe
+```
+
+<Warning>
+  Never use test keys in production.
+</Warning>
+
+## Common Issues
+
+### ReCAPTCHA Not Loading
+
+1. Check if site key is correct
+2. Verify domain is authorized in reCAPTCHA console
+3. Check browser console for errors
+4. Ensure scripts can load (check ad blockers)
+
+### Token Verification Fails
+
+1. Verify secret key on backend
+2. Check token hasn't expired
+3. Ensure proper error handling
+4. Verify network connectivity
+
+### Widget Not Visible
+
+```tsx
+// Ensure container has proper z-index
+<div style={{ position: 'relative', zIndex: 1000 }}>
+  <ReCAPTCHA sitekey={siteKey} />
+</div>
+```
+
+## Migration to v3
+
+For invisible, score-based protection, consider reCAPTCHA v3:
+
+```bash
+npm install react-google-recaptcha-v3
+```
+
+```tsx
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
+
+function MyComponent() {
+  const { executeRecaptcha } = useGoogleReCaptcha();
+
+  const handleSubmit = async () => {
+    if (!executeRecaptcha) {
+      return;
+    }
+
+    const token = await executeRecaptcha('submit_form');
+    // Verify token on backend
+  };
+}
+```
+
+## Related Resources
+
+- [reCAPTCHA Documentation](https://developers.google.com/recaptcha/docs/display)
+- [reCAPTCHA Admin Console](https://www.google.com/recaptcha/admin)
+- [react-google-recaptcha](https://www.npmjs.com/package/react-google-recaptcha)
+- [Backend Verification Guide](https://developers.google.com/recaptcha/docs/verify)

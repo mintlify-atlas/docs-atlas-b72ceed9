@@ -1,0 +1,266 @@
+---
+title: 'API Overview'
+description: 'Architecture and core concepts of the Servineo API'
+---
+
+## Introduction
+
+The Servineo API is built using a modern RESTful architecture with Redux Toolkit Query (RTK Query) for client-side data fetching and caching. The API powers the Servineo platform, connecting service providers (fixers) with customers (requesters).
+
+## Architecture
+
+### Base Configuration
+
+The API uses a centralized configuration approach with RTK Query:
+
+```typescript ~/workspace/source/src/app/redux/services/baseApi.ts
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL + '/api';
+
+export const baseQuery = fetchBaseQuery({
+  baseUrl: API_URL,
+  credentials: 'include',
+});
+
+export const baseApi = createApi({
+  reducerPath: 'api',
+  baseQuery,
+  tagTypes: [
+    'User',
+    'Job',
+    'Statistics',
+    'JobOffer',
+    'Requester',
+    'SearchHistory',
+    'Experience',
+    'Portfolio',
+    'Certification',
+  ],
+  endpoints: () => ({}),
+});
+```
+
+### Base URL
+
+All API endpoints are relative to:
+
+```
+{NEXT_PUBLIC_API_URL}/api
+```
+
+**Example:**
+- Development: `http://localhost:8000/api`
+- Production: Configured via environment variables
+
+## Core Concepts
+
+### RTK Query
+
+Servineo uses Redux Toolkit Query for API interactions, providing:
+
+- **Automatic caching**: Reduces unnecessary network requests
+- **Automatic refetching**: Keeps data fresh with tag-based invalidation
+- **Loading states**: Built-in loading, error, and success states
+- **Optimistic updates**: Immediate UI updates before server confirmation
+
+### Tag-Based Cache Invalidation
+
+The API uses tags to manage cache invalidation:
+
+<ParamField path="User" type="tag">
+  Invalidated when user profiles or user data changes
+</ParamField>
+
+<ParamField path="Job" type="tag">
+  Invalidated when job offers are created, updated, or deleted
+</ParamField>
+
+<ParamField path="JobOffer" type="tag">
+  Invalidated when job offers change
+</ParamField>
+
+<ParamField path="Experience" type="tag">
+  Invalidated when fixer experiences are modified
+</ParamField>
+
+<ParamField path="Portfolio" type="tag">
+  Invalidated when portfolio items are added or removed
+</ParamField>
+
+<ParamField path="Certification" type="tag">
+  Invalidated when certifications are updated
+</ParamField>
+
+<ParamField path="Statistics" type="tag">
+  Invalidated when appointment or tracking data changes
+</ParamField>
+
+## API Services
+
+The Servineo API is organized into specialized service modules:
+
+### User Management
+- User profiles
+- Role management (fixer/requester/admin)
+- Location updates
+- Profile conversion
+
+### Job Management
+- Job offers creation and management
+- Job requests from requesters
+- Status updates and toggles
+
+### Appointments
+- Appointment scheduling
+- Tracking and metrics
+- Map locations
+- Fixer statistics
+
+### Fixer Profile
+- Experiences
+- Portfolio items (images/videos)
+- Certifications
+
+### Search & Discovery
+- Search logging
+- Filter updates
+- Search history
+
+## Error Handling
+
+### Error Response Format
+
+All API errors follow a consistent structure:
+
+```typescript
+export interface ApiError {
+  status: number;
+  data: {
+    message: string;
+    errors?: Record<string, string[]>;
+  };
+}
+```
+
+### Type Guard
+
+Use the provided type guard to check for API errors:
+
+```typescript
+import { isApiError } from './baseApi';
+
+try {
+  const result = await createJob(formData);
+} catch (error) {
+  if (isApiError(error)) {
+    console.error(error.data.message);
+    // Handle validation errors
+    if (error.data.errors) {
+      Object.entries(error.data.errors).forEach(([field, messages]) => {
+        console.error(`${field}: ${messages.join(', ')}`);
+      });
+    }
+  }
+}
+```
+
+### Common Status Codes
+
+<ResponseField name="200" type="OK">
+  Request successful
+</ResponseField>
+
+<ResponseField name="201" type="Created">
+  Resource created successfully
+</ResponseField>
+
+<ResponseField name="400" type="Bad Request">
+  Invalid request parameters or validation errors
+</ResponseField>
+
+<ResponseField name="401" type="Unauthorized">
+  Authentication required or invalid credentials
+</ResponseField>
+
+<ResponseField name="403" type="Forbidden">
+  Insufficient permissions
+</ResponseField>
+
+<ResponseField name="404" type="Not Found">
+  Resource not found
+</ResponseField>
+
+<ResponseField name="423" type="Locked">
+  Account temporarily locked (e.g., too many 2FA attempts)
+</ResponseField>
+
+<ResponseField name="500" type="Internal Server Error">
+  Server-side error
+</ResponseField>
+
+## Request Headers
+
+### Authentication
+
+<Note>
+Authentication is handled via HTTP-only cookies with `credentials: 'include'` configuration.
+</Note>
+
+For endpoints requiring Bearer tokens:
+
+```typescript
+headers: {
+  'Authorization': `Bearer ${token}`,
+  'Content-Type': 'application/json'
+}
+```
+
+## Response Formats
+
+### Standard Success Response
+
+```typescript
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  message?: string;
+}
+```
+
+### Paginated Response
+
+Some endpoints return paginated data:
+
+```typescript
+interface PaginatedResponse<T> {
+  data: T[];
+  count: number;
+  success?: boolean;
+}
+```
+
+## Rate Limiting
+
+The API implements rate limiting for security:
+
+- **2FA verification**: Limited attempts before account lock (423 status)
+- **Lock duration**: Returned in `retryAfterSeconds` field
+- **Remaining attempts**: Returned in `attemptsLeft` field
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="lock" href="/developer/api/authentication">
+    Learn about authentication endpoints and flows
+  </Card>
+  <Card title="Users" icon="users" href="/developer/api/users">
+    User management and profile APIs
+  </Card>
+  <Card title="Jobs" icon="briefcase" href="/developer/api/jobs">
+    Job offers and requests API
+  </Card>
+  <Card title="Appointments" icon="calendar" href="/developer/api/appointments">
+    Appointment scheduling and tracking
+  </Card>
+</CardGroup>

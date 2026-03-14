@@ -1,0 +1,348 @@
+---
+title: Getting Started as a Fixer
+description: Complete guide to registering and setting up your fixer profile on Servineo
+---
+
+# Getting Started as a Fixer
+
+This guide walks you through the complete process of becoming a fixer on Servineo, from initial registration to profile completion.
+
+## Prerequisites
+
+Before you begin, make sure you have:
+
+- A valid national ID (CI)
+- Professional experience in at least one service category
+- A phone number and email address
+- Profile photo (recommended)
+- Banking information (for digital payments)
+
+<Warning>
+You cannot register as a fixer if you're already registered with the "fixer" role. The system will automatically redirect existing fixers to the dashboard.
+</Warning>
+
+## Registration Process
+
+The fixer registration process consists of **7 steps** that must be completed in order.
+
+### Step 1: Initial Information
+
+Provide your basic contact details:
+
+```typescript
+interface InitialRegistrationData {
+  name: string;      // 3-40 characters, letters only
+  email: string;     // Valid email address
+  phone: string;     // 8-12 digits
+}
+```
+
+**Validation Rules:**
+- Name: 3-40 characters, only letters and spaces
+- Email: Must be a valid email format
+- Phone: 8-12 digits (may include +, -, spaces)
+
+<Note>
+The form will auto-populate with your existing user data if you're already logged in.
+</Note>
+
+### Step 2: Profile Photo
+
+Upload a professional profile photo:
+
+<Steps>
+  <Step title="Choose a Photo">
+    Select a clear, professional photo that shows your face
+  </Step>
+  
+  <Step title="Upload">
+    The photo will be stored and displayed on your profile
+  </Step>
+  
+  <Step title="Verify">
+    Ensure the photo meets quality standards before proceeding
+  </Step>
+</Steps>
+
+<Tip>
+Profiles with professional photos receive 3x more job requests. Use a well-lit, clear headshot.
+</Tip>
+
+### Step 3: Identity Verification (CI)
+
+Provide your national identity card number:
+
+```typescript
+ci: string  // Format: numbers and hyphens only
+```
+
+**Validation:**
+- Required field
+- Must contain only numbers and hyphens
+- Format: `XXXXXXX-XX` (example)
+
+<Info>
+Your CI information is kept private and used only for verification purposes.
+</Info>
+
+### Step 4: Work Location
+
+Set your primary work location:
+
+```typescript
+workLocation: {
+  lat: number;        // Latitude (-90 to 90)
+  lng: number;        // Longitude (-180 to 180)
+  direccion?: string; // Street address
+  departamento?: string;
+  pais?: string;
+}
+```
+
+The location step includes an interactive map where you can:
+
+- Click to set your location
+- Drag the marker to adjust position
+- Enter coordinates manually
+- Add address details
+
+<Warning>
+Your work location helps clients find you. Make sure it accurately represents your service area.
+</Warning>
+
+### Step 5: Services Selection
+
+Select the services you offer:
+
+#### Default Services Available:
+
+- Plomería (Plumbing)
+- Electricidad (Electrical)
+- Carpintería (Carpentry)
+- Pintura (Painting)
+
+#### Custom Services
+
+You can also add custom services:
+
+<Steps>
+  <Step title="Enter Service Name">
+    Type the service name (2-20 characters, letters only)
+  </Step>
+  
+  <Step title="Add to List">
+    Click "Agregar" or press Enter
+  </Step>
+  
+  <Step title="Manage Services">
+    Edit or delete custom services as needed
+  </Step>
+</Steps>
+
+**Service Validation:**
+- Minimum: 2 characters
+- Maximum: 20 characters
+- Letters only (including Spanish characters: á, é, í, ó, ú, ñ)
+- At least 1 service must be selected
+
+<Tip>
+Add all services you're qualified to perform. You can always add more later from your dashboard.
+</Tip>
+
+### Step 6: Payment Methods
+
+Configure how you'll receive payments:
+
+<CardGroup cols={3}>
+  <Card title="Cash (Efectivo)" icon="money-bill">
+    Accept cash payments on-site
+  </Card>
+  
+  <Card title="QR" icon="qrcode">
+    Receive QR-based digital payments
+  </Card>
+  
+  <Card title="Credit Card" icon="credit-card">
+    Accept card payments through the platform
+  </Card>
+</CardGroup>
+
+#### Account Information
+
+If you select QR or Credit Card, you must provide banking details:
+
+```typescript
+accountInfo: string  // CBU (22 digits) or IBAN (24 digits)
+```
+
+**Account Validation:**
+- Only numeric characters
+- Maximum 34 characters
+- CBU: exactly 22 digits
+- IBAN: exactly 24 digits
+
+<Note>
+You must select at least one payment method to continue.
+</Note>
+
+### Step 7: Vehicle Information
+
+Indicate if you have a vehicle for service delivery:
+
+```typescript
+vehiculo: {
+  hasVehiculo: boolean;
+  tipoVehiculo?: 'motorcycle' | 'car' | 'van' | 'truck';
+}
+```
+
+If you have a vehicle, select the type:
+
+- **Motorcycle**: For quick, small jobs
+- **Car**: Standard transportation
+- **Van**: For larger equipment
+- **Truck**: For heavy-duty jobs
+
+<Info>
+Having a vehicle can increase your job opportunities, especially for services requiring equipment transport.
+</Info>
+
+### Step 8: Terms and Conditions
+
+Review and accept the platform terms:
+
+- Read the terms and conditions carefully
+- Check the "I accept" checkbox
+- This step cannot be skipped
+
+<Warning>
+You must accept the terms and conditions to complete registration.
+</Warning>
+
+## Step Navigation
+
+The registration wizard includes:
+
+- **Progress Indicator**: Visual bar showing current step (out of 7)
+- **Back Button**: Return to previous step
+- **Next Button**: Proceed to next step (validates current step)
+- **Submit Button**: Appears on final step
+
+### Validation
+
+Each step is validated before you can proceed:
+
+```typescript
+// Step validation is triggered when clicking "Next"
+const validateStep = async () => {
+  // Fields are validated based on current step
+  const isValid = await trigger(fieldsToValidate);
+  return isValid;
+};
+```
+
+## Submission Process
+
+When you complete all steps and click "Registrar":
+
+<Steps>
+  <Step title="Data Validation">
+    All form data is validated one final time
+  </Step>
+  
+  <Step title="API Submission">
+    Data is sent to the backend via `convertToFixer` mutation
+  </Step>
+  
+  <Step title="Status Update">
+    Your profile status changes to "pending" for review
+  </Step>
+  
+  <Step title="Confirmation">
+    Success modal displays with registration details
+  </Step>
+</Steps>
+
+### Submission Payload
+
+```typescript
+const payload = {
+  id: user._id,
+  profile: {
+    telefono: user.telefono,
+    ci: data.ci.trim(),
+    services: data.servicios.map(id => ({
+      name: serviceName
+    })),
+    vehicle: {
+      hasVehiculo: data.vehiculo.hasVehiculo,
+      tipoVehiculo: data.vehiculo.tipoVehiculo
+    },
+    paymentMethods: [
+      { type: 'efectivo' },
+      { type: 'qr' },
+      { type: 'tarjeta' }
+    ],
+    location: {
+      lat: data.workLocation.lat,
+      lng: data.workLocation.lng,
+      direccion: data.workLocation.direccion
+    },
+    terms: {
+      accepted: data.acceptTerms
+    }
+  }
+};
+```
+
+## After Registration
+
+Once you submit your registration:
+
+1. **Review Period**: Your profile enters "pending" status
+2. **Verification**: Platform admins verify your information
+3. **Approval**: Profile status changes to "completed"
+4. **Activation**: You can now create job offers and receive requests
+
+<Note>
+The review process typically takes 24-48 hours. You'll receive a notification when your profile is approved.
+</Note>
+
+## Common Issues
+
+### Form Validation Errors
+
+<AccordionGroup>
+  <Accordion title="CI validation failed">
+    Ensure your CI contains only numbers and hyphens. Format: `1234567-1A`
+  </Accordion>
+  
+  <Accordion title="Location not set">
+    Click on the map to set your work location, or enter coordinates manually.
+  </Accordion>
+  
+  <Accordion title="No services selected">
+    You must select at least one service. Choose from defaults or add custom services.
+  </Accordion>
+  
+  <Accordion title="Account info required">
+    If you selected QR or Card payments, you must provide your bank account number (CBU/IBAN).
+  </Accordion>
+  
+  <Accordion title="Vehicle type not specified">
+    If you indicated you have a vehicle, you must select the vehicle type.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+After completing registration:
+
+- [Set up your dashboard](/fixers/dashboard)
+- [Create your first job offer](/fixers/job-offers)
+- [Configure your wallet](/fixers/wallet)
+- [Manage your calendar](/fixers/calendar)
+
+<Tip>
+While waiting for approval, prepare photos for your portfolio and gather certification documents to upload to your profile.
+</Tip>

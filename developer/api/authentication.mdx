@@ -1,0 +1,466 @@
+---
+title: 'Authentication API'
+description: 'Authentication, registration, and security endpoints'
+---
+
+## Overview
+
+Servineo supports multiple authentication methods:
+- Google OAuth
+- Manual email/password registration
+- Two-factor authentication (2FA)
+- Session management
+
+## Base URL
+
+Authentication endpoints use a different base path:
+
+```
+{NEXT_PUBLIC_API_URL}/api/signUp
+{NEXT_PUBLIC_API_URL}/api/controlC/2fa
+```
+
+## Google Authentication
+
+### Send Google Token
+
+Authenticate or register a user using Google OAuth.
+
+```typescript
+POST /api/signUp/google/auth
+```
+
+<ParamField body="token" type="string" required>
+  Google OAuth token from the client
+</ParamField>
+
+**Request Example:**
+
+```typescript
+import { enviarTokenGoogle } from '@/app/redux/services/auth/registro';
+
+const response = await enviarTokenGoogle(googleToken);
+```
+
+**Response:**
+
+<ResponseField name="status" type="string">
+  Authentication status: `ok`, `firstTime`, `exists`, or `error`
+</ResponseField>
+
+<ResponseField name="firstTime" type="boolean">
+  Indicates if this is the user's first login
+</ResponseField>
+
+<ResponseField name="token" type="string">
+  JWT token for authenticated requests
+</ResponseField>
+
+<ResponseField name="user" type="User">
+  User object with id, email, name, and picture
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Error message if status is `error`
+</ResponseField>
+
+<CodeGroup>
+```typescript Response Type
+interface GoogleAuthResponse {
+  status: 'ok' | 'firstTime' | 'exists' | 'error';
+  firstTime?: boolean;
+  token?: string;
+  user?: User;
+  message?: string;
+}
+
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  picture?: string;
+}
+```
+
+```json Success Response
+{
+  "status": "ok",
+  "firstTime": false,
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "507f1f77bcf86cd799439011",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "picture": "https://lh3.googleusercontent.com/..."
+  }
+}
+```
+
+```json First Time User
+{
+  "status": "firstTime",
+  "firstTime": true,
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "507f1f77bcf86cd799439011",
+    "email": "newuser@example.com",
+    "name": "Jane Smith"
+  }
+}
+```
+</CodeGroup>
+
+### Verify Session
+
+Verify an existing JWT token.
+
+```typescript
+GET /api/signUp/google/verify
+```
+
+**Headers:**
+
+```typescript
+{
+  'Authorization': `Bearer ${token}`
+}
+```
+
+**Usage:**
+
+```typescript
+import { verificarSesionBackend } from '@/app/redux/services/auth/registro';
+
+const session = await verificarSesionBackend(token);
+```
+
+## Manual Registration
+
+### Register with Email/Password
+
+Create a new user account with email and password.
+
+```typescript
+POST /api/signUp/registro/manual
+```
+
+<ParamField body="name" type="string" required>
+  User's full name
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  User's email address
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password (minimum 6 characters recommended)
+</ParamField>
+
+**Request Example:**
+
+```typescript
+import { enviarRegistroManual } from '@/app/redux/services/auth/registro';
+
+const result = await enviarRegistroManual(
+  'John Doe',
+  'john@example.com',
+  'securePassword123'
+);
+```
+
+**Response:**
+
+<CodeGroup>
+```typescript Response Type
+interface RegistroResponse {
+  success: boolean;
+  message?: string;
+  token?: string;
+  user?: User;
+}
+```
+
+```json Success
+{
+  "success": true,
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "507f1f77bcf86cd799439011",
+    "email": "john@example.com",
+    "name": "John Doe"
+  }
+}
+```
+
+```json Error
+{
+  "success": false,
+  "message": "Email already exists"
+}
+```
+</CodeGroup>
+
+## Registration Data Collection
+
+### Submit Location
+
+Submit user's location during registration.
+
+```typescript
+POST /api/signUp/registrar/ubicacion
+```
+
+**Headers:**
+
+```typescript
+{
+  'Authorization': `Bearer ${token}`,
+  'Content-Type': 'application/json'
+}
+```
+
+<ParamField body="lat" type="number" required>
+  Latitude coordinate
+</ParamField>
+
+<ParamField body="lng" type="number" required>
+  Longitude coordinate
+</ParamField>
+
+<ParamField body="direccion" type="string">
+  Human-readable address
+</ParamField>
+
+<ParamField body="departamento" type="string">
+  Department/state
+</ParamField>
+
+<ParamField body="pais" type="string">
+  Country
+</ParamField>
+
+**Usage:**
+
+```typescript
+import { enviarUbicacion } from '@/app/redux/services/auth/registro';
+
+const response = await enviarUbicacion(
+  -34.9011,
+  -56.1645,
+  'Av. 18 de Julio 1234',
+  'Montevideo',
+  'Uruguay'
+);
+```
+
+### Submit Phone Number
+
+Submit user's phone number during registration.
+
+```typescript
+POST /api/signUp/registrar/telefono
+```
+
+**Headers:**
+
+```typescript
+{
+  'Authorization': `Bearer ${token}`,
+  'Content-Type': 'application/json'
+}
+```
+
+<ParamField body="telefono" type="string" required>
+  User's phone number
+</ParamField>
+
+**Usage:**
+
+```typescript
+import { enviarTelefono } from '@/app/redux/services/auth/registro';
+
+try {
+  const response = await enviarTelefono('+598 99 123 456');
+  console.log(response.message);
+} catch (error) {
+  console.error('Phone submission failed:', error);
+}
+```
+
+## Two-Factor Authentication
+
+### Generate QR Code
+
+Generate a 2FA QR code for the authenticated user.
+
+```typescript
+POST /api/controlC/2fa/generate
+```
+
+**Headers:**
+
+```typescript
+{
+  'Authorization': `Bearer ${token}`,
+  'Content-Type': 'application/json'
+}
+```
+
+**Usage:**
+
+```typescript
+import { generateQr } from '@/app/redux/services/twofactor';
+
+const qrData = await generateQr();
+// Returns QR code data and secret
+```
+
+**Response:**
+
+```json
+{
+  "qrCodeUrl": "data:image/png;base64,...",
+  "secret": "JBSWY3DPEHPK3PXP"
+}
+```
+
+### Verify 2FA Token
+
+Verify a 2FA token from an authenticator app.
+
+```typescript
+POST /api/controlC/2fa/verify
+```
+
+**Headers:**
+
+```typescript
+{
+  'Authorization': `Bearer ${token}`,
+  'Content-Type': 'application/json'
+}
+```
+
+<ParamField body="token" type="string" required>
+  6-digit 2FA code from authenticator app
+</ParamField>
+
+**Usage:**
+
+```typescript
+import { verifyToken } from '@/app/redux/services/twofactor';
+
+try {
+  const result = await verifyToken('123456');
+  console.log('2FA verification successful');
+} catch (error) {
+  if (error.locked) {
+    console.error(`Account locked until: ${error.lockedUntil}`);
+    console.error(`Retry after ${error.retryAfterSeconds} seconds`);
+  } else if (error.attemptsLeft !== undefined) {
+    console.error(`Invalid token. ${error.attemptsLeft} attempts remaining`);
+  }
+}
+```
+
+**Error Responses:**
+
+<ResponseField name="423 Locked">
+  Account temporarily locked due to too many failed attempts
+</ResponseField>
+
+<CodeGroup>
+```json Account Locked (423)
+{
+  "message": "Cuenta bloqueada temporalmente",
+  "lockedUntil": "2024-01-15T10:30:00Z",
+  "retryAfterSeconds": 900
+}
+```
+
+```json Invalid Token (400)
+{
+  "message": "Token inválido",
+  "attemptsLeft": 2,
+  "attempts": 3
+}
+```
+
+```json Success (200)
+{
+  "success": true,
+  "message": "2FA verified successfully"
+}
+```
+</CodeGroup>
+
+### Disable 2FA
+
+Disable two-factor authentication for the user.
+
+```typescript
+POST /api/controlC/2fa/disable
+```
+
+**Headers:**
+
+```typescript
+{
+  'Authorization': `Bearer ${token}`,
+  'Content-Type': 'application/json'
+}
+```
+
+**Usage:**
+
+```typescript
+import { disable2fa } from '@/app/redux/services/twofactor';
+
+const result = await disable2fa();
+```
+
+## TypeScript Interfaces
+
+```typescript ~/workspace/source/src/app/redux/services/auth/registro.ts
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+  picture?: string;
+}
+
+export interface GoogleAuthResponse {
+  status: 'ok' | 'firstTime' | 'exists' | 'error';
+  firstTime?: boolean;
+  token?: string;
+  user?: User;
+  message?: string;
+}
+
+export interface UbicacionResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface TelefonoResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface RegistroResponse {
+  success: boolean;
+  message?: string;
+  token?: string;
+  user?: User;
+}
+```
+
+<Note>
+**Security Best Practices:**
+- Store JWT tokens securely (HTTP-only cookies recommended)
+- Never expose tokens in URLs or logs
+- Implement token refresh mechanisms
+- Use HTTPS in production
+- Rate limit authentication endpoints
+</Note>

@@ -1,0 +1,595 @@
+---
+title: 'Advanced Search & Filters'
+description: 'Powerful search and filtering system with URL synchronization, Redux state management, and real-time results'
+icon: 'magnifying-glass'
+---
+
+## Overview
+
+Servineo Frontend implements a sophisticated search and filtering system that allows users to find job offers and service providers with precision. The system supports full-text search, category filtering, location-based search, price ranges, date filters, and rating-based filtering.
+
+## Core Features
+
+<CardGroup cols={3}>
+  <Card title="Full-Text Search" icon="search">
+    Search by job title, description, or exact phrases
+  </Card>
+  <Card title="Multi-Filter Support" icon="filter">
+    Combine location, category, price, date, and rating filters
+  </Card>
+  <Card title="URL Synchronization" icon="link">
+    Shareable URLs with complete filter state
+  </Card>
+  <Card title="Real-Time Results" icon="clock">
+    Live result counts as filters change
+  </Card>
+  <Card title="Recent Searches" icon="history">
+    Track and revisit previous searches
+  </Card>
+  <Card title="Auto-Complete" icon="wand-magic-sparkles">
+    Intelligent suggestions based on search history
+  </Card>
+</CardGroup>
+
+## Search Components
+
+### Main Search Bar
+
+The primary search interface located at `src/Components/Job-offers/Search/SearchBar.tsx` provides:
+
+- Real-time search input
+- Search history dropdown
+- Auto-suggestions
+- Clear button
+- Advanced search navigation
+
+### Search Options
+
+The `SearchCheckboxes` component (`src/Components/Adv-search/SearchCheckboxes.tsx`) offers search refinement:
+
+```tsx title="Search Checkbox Options"
+interface SearchCheckboxesProps {
+  titleOnly: boolean;        // Search only in job titles
+  setTitleOnly: (value: boolean) => void;
+  exactWords: boolean;       // Match exact phrase
+  setExactWords: (value: boolean) => void;
+}
+
+export function SearchCheckboxes({
+  titleOnly,
+  setTitleOnly,
+  exactWords,
+  setExactWords,
+}: SearchCheckboxesProps) {
+  return (
+    <div className='w-full bg-gray-100 border border-gray-200 rounded-lg p-4 mt-4'>
+      <label className='flex items-center gap-3 cursor-pointer'>
+        <input
+          type='checkbox'
+          checked={titleOnly}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            setTitleOnly(checked);
+            if (checked) setExactWords(false); // Mutually exclusive
+          }}
+        />
+        <span>Search only in job title</span>
+      </label>
+
+      <label className='flex items-center gap-3 cursor-pointer'>
+        <input
+          type='checkbox'
+          checked={exactWords}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            setExactWords(checked);
+            if (checked) setTitleOnly(false); // Mutually exclusive
+          }}
+        />
+        <span>Exact words</span>
+      </label>
+    </div>
+  );
+}
+```
+
+<Info>
+**Title Only** and **Exact Words** are mutually exclusive options. When one is enabled, the other is automatically disabled.
+</Info>
+
+## Filter System
+
+### Filter State Management (Redux)
+
+The filter state is centrally managed via Redux (`src/app/redux/slice/filterSlice.ts`):
+
+```typescript title="Filter State Interface"
+interface FilterState {
+  searchQuery: string;              // Current search text
+  recentSearches: string[];         // Last 5 searches
+  selectedFixerNames: string[];     // Filter by fixer names
+  selectedCities: string[];         // Location filters
+  selectedJobTypes: string[];       // Job category filters
+  isAutoSelectedJobType: boolean;   // Auto-selected from search
+  isAutoSelectedCity: boolean;      // Auto-selected from search
+  sidebarOpen: boolean;             // Filter sidebar state
+}
+```
+
+### Available Filter Actions
+
+```typescript title="Filter Redux Actions"
+// Search query management
+setSearchQuery(query: string)      // Update search text
+addRecentSearch(query: string)     // Add to history (max 5)
+clearRecentSearches()              // Clear all history
+
+// Filter toggles
+toggleFixerName(name: string)      // Add/remove fixer filter
+toggleCity(city: string)           // Add/remove city filter
+toggleJobType(type: string)        // Add/remove job type filter
+
+// Auto-selection (from search matches)
+autoSelectJobType(type: string)    // Auto-select single job type
+autoSelectCity(city: string)       // Auto-select single city
+
+// Clear operations
+clearJobTypeSelection()            // Remove all job type filters
+clearCitySelection()               // Remove all city filters
+resetFilters()                     // Reset all filters
+
+// UI state
+setSidebarOpen(open: boolean)      // Toggle filter panel
+```
+
+### Recent Searches
+
+Recent searches are automatically tracked and limited to 5 entries:
+
+```typescript title="Recent Search Logic"
+addRecentSearch: (state, action: PayloadAction<string>) => {
+  const search = action.payload.trim();
+  if (search) {
+    // Add to front, remove duplicates, limit to 5
+    state.recentSearches = [
+      search,
+      ...state.recentSearches.filter((s) => s !== search)
+    ].slice(0, 5);
+  }
+}
+```
+
+## Advanced Search Logic
+
+The `useAdvSearchLogic` hook (`src/app/redux/features/adv-search/useAdvSearchLogic.ts`) orchestrates the entire search experience:
+
+### Filter State Structure
+
+```typescript title="Local Filter State"
+interface FilterStateLocal {
+  range: string[];           // Distance ranges (if location-based)
+  city: string[];           // Selected cities
+  category: string[];       // Job categories
+  tags: string[];           // Additional tags/keywords
+  priceRanges: string[];    // Price range selections
+  minPrice: number | null;  // Minimum price
+  maxPrice: number | null;  // Maximum price
+}
+```
+
+### Search Hook API
+
+```typescript title="useAdvSearchLogic Hook"
+const {
+  // Search state
+  searchQuery,
+  titleOnly,
+  exactWords,
+  
+  // Filter selections
+  selectedRanges,
+  selectedCity,
+  selectedJobs,
+  selectedTags,
+  selectedPriceRanges,
+  selectedPriceKey,
+  
+  // Date & rating
+  selectedDateFilter,      // 'recent' | 'oldest' | 'specific'
+  selectedSpecificDate,
+  selectedRating,          // 1-5 stars
+  
+  // Results
+  resultsCount,
+  loading,
+  
+  // Handlers
+  setSearchQuery,
+  handleRangeChange,
+  handleCityChange,
+  handleJobChange,
+  handleDropdownChange,
+  handlePriceRangeChange,
+  handleSearch,            // Execute search and navigate
+  
+  // Date handlers
+  setSelectedDateFilter,
+  setSelectedSpecificDate,
+  setSelectedRating,
+} = useAdvSearchLogic();
+```
+
+### Real-Time Result Counting
+
+The hook provides debounced result counting as filters change:
+
+```typescript title="Debounced Result Updates"
+useEffect(() => {
+  const { minPrice, maxPrice } = parsePriceRange(selectedPriceKey);
+  
+  const apiFilters = {
+    range: selectedRanges,
+    city: selectedCity,
+    category: selectedJobs,
+    tags: selectedTags,
+    minPrice,
+    maxPrice,
+  };
+
+  // Debounce API calls (150ms)
+  const timer = window.setTimeout(() => {
+    triggerGetOffers({
+      search: searchQuery ?? '',
+      filters: apiFilters,
+      sortBy: selectedDateFilter,
+      rating: selectedRating ?? undefined,
+      page: 1,
+      limit: 1,  // Only need count
+      titleOnly: titleOnly ?? false,
+      exact: exactWords ?? false,
+    });
+  }, 150);
+
+  return () => clearTimeout(timer);
+}, [
+  searchQuery,
+  selectedRanges,
+  selectedCity,
+  selectedJobs,
+  selectedTags,
+  selectedPriceKey,
+  titleOnly,
+  exactWords,
+  selectedDateFilter,
+  selectedRating,
+]);
+```
+
+<Tip>
+The 150ms debounce delay prevents excessive API calls while still feeling responsive to the user.
+</Tip>
+
+## URL Synchronization
+
+All filter state is synchronized with URL parameters for shareability:
+
+### URL Parameter Mapping
+
+```typescript title="URL Sync Implementation"
+const handleSearch = (query: string) => {
+  const params = new URLSearchParams();
+  
+  // Basic search
+  if (query.trim()) params.set('search', query.trim());
+  if (titleOnly) params.set('titleOnly', 'true');
+  if (exactWords) params.set('exact', 'true');
+  
+  // Location & category
+  selectedRanges.forEach((r) => params.append('range', r));
+  if (selectedCity.length) params.set('city', selectedCity.join(','));
+  if (selectedJobs.length) params.set('category', selectedJobs.join(','));
+  if (selectedTags.length) params.set('tags', selectedTags.join(','));
+  
+  // Price
+  const { minPrice, maxPrice } = parsePriceRange(selectedPriceKey);
+  if (minPrice != null) params.set('minPrice', String(minPrice));
+  if (maxPrice != null) params.set('maxPrice', String(maxPrice));
+  
+  // Date sorting
+  if (selectedDateFilter === 'recent') {
+    params.set('sortBy', 'recent');
+  } else if (selectedDateFilter === 'oldest') {
+    params.set('sortBy', 'oldest');
+  } else if (selectedSpecificDate) {
+    const dateStr = selectedSpecificDate.toISOString().split('T')[0];
+    params.set('date', dateStr);
+  }
+  
+  // Rating (1-5 stars)
+  if (selectedRating != null) {
+    const clampedRating = Math.min(5, Math.max(1, selectedRating));
+    params.set('rating', String(clampedRating));
+  }
+  
+  params.set('page', '1');
+  params.set('limit', '10');
+  params.set('fromAdv', 'true');
+  
+  window.location.href = `/resultsAdvSearch?${params.toString()}`;
+};
+```
+
+### State Restoration from URL
+
+On component mount, filter state is restored from URL parameters:
+
+```typescript title="Restore Filters from URL"
+useEffect(() => {
+  if (typeof window === 'undefined') return;
+  const sp = new URLSearchParams(window.location.search);
+  if (!sp.toString()) return;
+
+  // Restore search query
+  const search = sp.get('search');
+  if (search != null) setSearchQuery(search);
+  
+  // Restore search options
+  const titleOnlyP = sp.get('titleOnly');
+  if (titleOnlyP != null) setTitleOnly(titleOnlyP === 'true');
+  
+  const exactP = sp.get('exact');
+  if (exactP != null) setExactWords(exactP === 'true');
+  
+  // Restore cities (comma-separated)
+  const cityRaw = sp.get('city');
+  if (cityRaw != null) {
+    const cities = cityRaw.split(',').map((s) => s.trim()).filter(Boolean);
+    if (cities.length) setSelectedCity(cities);
+  }
+  
+  // Restore categories
+  const categoriesFromAll = sp.getAll('category') || [];
+  let urlCategory: string[] = [];
+  if (categoriesFromAll.length) {
+    urlCategory = categoriesFromAll
+      .flatMap((s) => s.split(','))
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  if (urlCategory.length) setSelectedJobs(urlCategory);
+  
+  // Restore rating
+  const rating = sp.get('rating');
+  if (rating != null) {
+    const r = Number(rating);
+    if (!Number.isNaN(r)) {
+      const clampedRating = Math.min(5, Math.max(1, r));
+      setSelectedRating(clampedRating);
+    }
+  }
+}, []);
+```
+
+## Filter Components
+
+### Date Filter Selector
+
+Component: `src/Components/Adv-search/DateFilterSelector.tsx`
+
+Allows users to filter by:
+- Most recent jobs
+- Oldest jobs first
+- Specific date selection
+
+### Price Range Filter
+
+Component: `src/Components/Adv-search/PriceRangeList.tsx`
+
+Provides predefined price ranges or custom min/max values:
+
+```typescript title="Price Range Parser"
+export function parsePriceRange(priceKey: string): { minPrice: number | null; maxPrice: number | null } {
+  if (!priceKey) return { minPrice: null, maxPrice: null };
+  
+  const parts = priceKey.split('-').map((p) => p.trim());
+  const minPrice = parts[0] ? Number(parts[0]) : null;
+  const maxPrice = parts[1] ? Number(parts[1]) : null;
+  
+  return { minPrice, maxPrice };
+}
+```
+
+### Rating Filter
+
+Component: `src/Components/Adv-search/CalificacionEstrella.tsx`
+
+Allows filtering by minimum star rating (1-5 stars).
+
+### Dropdown Lists
+
+Component: `src/Components/Adv-search/DropdownList.tsx`
+
+Generic dropdown component for category and tag selection with:
+- Multi-select capability
+- Search within options
+- Checkbox interface
+
+## Search History
+
+The search history feature is implemented via dedicated hooks:
+
+### useSearchHistory Hook
+
+Location: `src/app/redux/features/searchHistory/useSearchHistory.ts`
+
+Provides:
+- Automatic search term persistence
+- Recent searches retrieval
+- Search deletion
+- History clearing
+
+### useSearchSuggestions Hook
+
+Location: `src/app/redux/features/searchHistory/useSearchSuggestions.ts`
+
+Generates intelligent suggestions based on:
+- Previous search history
+- Popular searches
+- Matching categories
+
+## Filter Drawer (Mobile)
+
+Component: `src/Components/Job-offers/Filter/FilterDrawer.tsx`
+
+Responsive drawer component for mobile devices:
+
+```typescript title="Filter Drawer Features"
+- Slide-in animation from bottom/side
+- Touch-friendly interface
+- Apply/Clear buttons
+- Active filter count badge
+- Backdrop overlay with dismiss
+```
+
+## Results Display
+
+### Results Counter
+
+Component: `src/Components/Adv-search/ResultsCounter.tsx`
+
+Displays:
+- Total matching results
+- Loading state during updates
+- "No results" message when appropriate
+
+```tsx title="Results Counter Display"
+interface ResultsCounterProps {
+  count: number | null;
+  loading: boolean;
+}
+
+export function ResultsCounter({ count, loading }: ResultsCounterProps) {
+  if (loading) return <span>Loading...</span>;
+  if (count === null) return null;
+  if (count === 0) return <span>No results found</span>;
+  
+  return <span>{count} results</span>;
+}
+```
+
+### No Results Message
+
+Component: `src/Components/Job-offers/Search/NoResultsMessage.tsx`
+
+Displays helpful message when no results match current filters, with suggestions to:
+- Clear some filters
+- Try different keywords
+- Check spelling
+- Broaden search criteria
+
+## Session Storage
+
+Advanced search state is persisted to sessionStorage for navigation:
+
+```typescript title="Session Storage Persistence"
+try {
+  const state = {
+    search: searchQuery,
+    titleOnly,
+    exact: exactWords,
+    selectedRanges,
+    selectedCity,
+    selectedJobs,
+    selectedTags,
+    selectedPriceKey,
+    selectedDateFilter,
+    selectedSpecificDate: selectedSpecificDate ? selectedSpecificDate.toISOString() : null,
+    selectedRating,
+  };
+  window.sessionStorage.setItem('advSearch_state', JSON.stringify(state));
+  window.sessionStorage.setItem('fromAdv', 'true');
+} catch {
+  // Ignore storage errors
+}
+```
+
+<Info>
+Session storage allows users to navigate to result details and return to search results without losing their filter state.
+</Info>
+
+## API Integration
+
+Search and filters use RTK Query for efficient data fetching:
+
+```typescript title="Search API Query"
+const [triggerGetOffers, { data: offersData, isLoading }] = useLazyGetOffersQuery();
+
+// Trigger search
+triggerGetOffers({
+  search: searchQuery,
+  filters: {
+    range: selectedRanges,
+    city: selectedCity,
+    category: selectedJobs,
+    tags: selectedTags,
+    minPrice,
+    maxPrice,
+  },
+  sortBy: 'recent' | 'oldest',
+  date: '2026-03-14',
+  rating: 4,
+  page: 1,
+  limit: 10,
+  titleOnly: false,
+  exact: false,
+});
+```
+
+## Performance Optimizations
+
+<CardGroup cols={2}>
+  <Card title="Debounced API Calls" icon="timer">
+    150ms debounce prevents excessive requests during rapid filter changes
+  </Card>
+  <Card title="Optimistic UI Updates" icon="bolt">
+    Result count shows loading state immediately
+  </Card>
+  <Card title="Lazy Queries" icon="database">
+    RTK Query's lazy loading only fetches when needed
+  </Card>
+  <Card title="Memoized Selectors" icon="memory">
+    Redux selectors prevent unnecessary re-renders
+  </Card>
+</CardGroup>
+
+## Accessibility
+
+- All filters have proper `aria-label` attributes
+- Keyboard navigation supported throughout
+- Screen reader announcements for result updates
+- Focus management in filter drawer
+
+## Best Practices
+
+<Steps>
+  <Step title="Always sync filters to URL">
+    Ensures shareable links and browser back/forward work correctly
+  </Step>
+  
+  <Step title="Debounce search input">
+    Wait for user to finish typing before triggering API calls
+  </Step>
+  
+  <Step title="Provide visual feedback">
+    Show loading states, result counts, and active filter badges
+  </Step>
+  
+  <Step title="Validate numeric inputs">
+    Clamp rating values to 1-5, validate price ranges
+  </Step>
+</Steps>
+
+## Related Documentation
+
+- [Multi-language Support](/features/multilingual) - Translated search terms and filters
+- [Notifications](/features/notifications) - Search error feedback

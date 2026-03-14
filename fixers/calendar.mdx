@@ -1,0 +1,450 @@
+---
+title: Calendar & Availability
+description: Managing appointments, schedules, and availability as a fixer
+---
+
+# Calendar & Availability Management
+
+Effectively managing your calendar and availability is crucial for maximizing bookings and maintaining professional relationships with clients.
+
+## Overview
+
+The Servineo calendar system allows fixers to:
+
+- View upcoming appointments
+- Manage booking requests
+- Set availability windows
+- Track appointment history
+- Handle cancellations
+
+<Info>
+Proper calendar management can increase your booking rate by up to 60% by showing clients when you're available.
+</Info>
+
+## Appointment Types
+
+Servineo supports two types of appointments:
+
+<CardGroup cols={2}>
+  <Card title="Virtual Appointments" icon="video">
+    Remote consultations via video call or chat
+  </Card>
+  
+  <Card title="In-Person Appointments" icon="location-dot">
+    On-site service at client location
+  </Card>
+</CardGroup>
+
+### Appointment Structure
+
+```typescript
+interface Appointment {
+  _id: string;
+  current_requester_name: string;
+  current_requester_phone: string;
+  appointment_description: string;
+  starting_time: Date;
+  finishing_time: Date;
+  display_name_location?: string;
+  lat?: number;
+  lon?: number;
+  schedule_state: 'booked' | 'pending' | 'completed' | 'cancelled';
+  appointment_type: 'virtual' | 'presencial';
+  link_id?: string;  // For virtual appointments
+  id_requester: string;
+}
+```
+
+## Viewing Appointments
+
+Access your appointments through:
+
+1. **Dashboard Notifications**: New appointment requests appear as notifications
+2. **Calendar View**: Monthly/weekly calendar display
+3. **Appointment List**: List view with filters
+
+### Appointment Card Display
+
+Each appointment shows:
+
+```tsx
+<AppointmentCard
+  appointment={appointment}
+  onCreateJob={() => handleCreateJob(appointment)}
+/>
+```
+
+**Card Information:**
+- Client name and phone number
+- Service description
+- Date and time window
+- Location (for in-person)
+- Status badge
+- Type indicator (virtual/in-person)
+- Virtual meeting link (if applicable)
+
+<Note>
+Appointments in "pending" status require your confirmation before they're finalized.
+</Note>
+
+## Appointment States
+
+<Steps>
+  <Step title="Pending">
+    New booking request awaiting your confirmation
+  </Step>
+  
+  <Step title="Booked">
+    Confirmed appointment scheduled for specific time
+  </Step>
+  
+  <Step title="Completed">
+    Service has been performed
+  </Step>
+  
+  <Step title="Cancelled">
+    Appointment cancelled by you or the client
+  </Step>
+</Steps>
+
+### State Management
+
+Appointments transition through states:
+
+```
+Pending → Booked → Completed
+    ↓        ↓
+Cancelled  Cancelled
+```
+
+## Managing Appointment Requests
+
+When you receive a booking request:
+
+<Steps>
+  <Step title="Review Details">
+    Check client info, service description, and proposed time
+  </Step>
+  
+  <Step title="Verify Availability">
+    Ensure you're available during the requested time slot
+  </Step>
+  
+  <Step title="Accept or Decline">
+    Confirm the booking or suggest alternative times
+  </Step>
+  
+  <Step title="Prepare for Service">
+    Add to your schedule and prepare necessary tools/materials
+  </Step>
+</Steps>
+
+### Converting Appointments to Jobs
+
+Appointments can be converted into formal jobs:
+
+```typescript
+const handleCreateJob = async (appointment: Appointment) => {
+  const jobData = {
+    appointmentId: appointment._id,
+    jobMotive: appointment.appointment_description,
+    jobDescription: appointment.appointment_description,
+    location: {
+      lat: appointment.lat,
+      lng: appointment.lon,
+      direccion: appointment.display_name_location
+    },
+    scheduledTime: {
+      start: appointment.starting_time,
+      end: appointment.finishing_time
+    }
+  };
+  
+  await createJobFromAppointment(jobData);
+};
+```
+
+<Tip>
+Converting appointments to jobs enables formal payment processing and tracking through the platform.
+</Tip>
+
+## Setting Availability
+
+Manage when clients can book you:
+
+### Availability Windows
+
+```typescript
+interface AvailabilityWindow {
+  dayOfWeek: 0 | 1 | 2 | 3 | 4 | 5 | 6;  // 0 = Sunday
+  startTime: string;  // "09:00"
+  endTime: string;    // "18:00"
+  isAvailable: boolean;
+}
+```
+
+### Setting Regular Hours
+
+<Steps>
+  <Step title="Access Calendar Settings">
+    Navigate to calendar configuration
+  </Step>
+  
+  <Step title="Set Daily Hours">
+    Configure start and end times for each day
+  </Step>
+  
+  <Step title="Mark Days Off">
+    Toggle unavailable days
+  </Step>
+  
+  <Step title="Save Schedule">
+    Changes apply immediately to booking system
+  </Step>
+</Steps>
+
+### Blocking Specific Dates
+
+Block dates when you're unavailable:
+
+```typescript
+const blockDates = async (dates: Date[]) => {
+  await updateAvailability({
+    blockedDates: dates,
+    reason: 'vacation' | 'personal' | 'other'
+  });
+};
+```
+
+<Warning>
+Blocking dates doesn't automatically cancel existing appointments. You must manually cancel or reschedule them.
+</Warning>
+
+## Cancellation Management
+
+### Cancelling Appointments
+
+When you need to cancel:
+
+<Steps>
+  <Step title="Navigate to Appointment">
+    Find the appointment in your calendar
+  </Step>
+  
+  <Step title="Click Cancel">
+    Select cancellation option
+  </Step>
+  
+  <Step title="Provide Reason">
+    Enter cancellation reason (optional but recommended)
+  </Step>
+  
+  <Step title="Notify Client">
+    System automatically notifies client of cancellation
+  </Step>
+</Steps>
+
+### Cancelled Appointments API
+
+Retrieve cancelled appointments:
+
+```typescript
+const getCancelledAppointments = async (fixerId: string, date: Date) => {
+  const response = await fetch(
+    `${API_BASE}/api/crud_read/schedules/get_cancelled_appointments_by_fixer_date`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ fixerId, date })
+    }
+  );
+  return response.json();
+};
+```
+
+<Note>
+Excessive cancellations can negatively impact your profile rating. Try to maintain a cancellation rate below 10%.
+</Note>
+
+## Virtual Appointments
+
+For remote consultations:
+
+### Setting Up Virtual Meetings
+
+```typescript
+if (appointment.appointment_type === 'virtual' && appointment.link_id) {
+  // Display meeting link
+  <a href={appointment.link_id} target="_blank">
+    Unirse a videollamada
+  </a>
+}
+```
+
+**Virtual Appointment Features:**
+- Automatic meeting link generation
+- Click to join from appointment card
+- Time zone handling
+- Recording options (if enabled)
+
+<Tip>
+Test your video setup before virtual appointments. Ensure good lighting, clear audio, and stable internet connection.
+</Tip>
+
+## Tracking Appointment History
+
+View completed and past appointments:
+
+### Filtering Options
+
+- **Date Range**: Filter by specific date range
+- **Status**: Filter by appointment state
+- **Client**: Search by client name
+- **Type**: Filter virtual vs in-person
+
+### Appointment Analytics
+
+Track metrics like:
+
+```typescript
+interface AppointmentMetrics {
+  totalAppointments: number;
+  completedRate: number;
+  cancellationRate: number;
+  averageDuration: number;
+  virtualVsInPerson: {
+    virtual: number;
+    inPerson: number;
+  };
+}
+```
+
+## Daily View
+
+The daily view context provides real-time updates:
+
+```typescript
+const DayliViewRequesterContext = {
+  appointments: Appointment[];
+  loading: boolean;
+  error: string | null;
+  loadAppointments: (date: Date) => Promise<void>;
+  getCancelledAppointments: (date: Date) => Promise<Appointment[]>;
+};
+```
+
+## Notifications
+
+Receive notifications for:
+
+<CardGroup cols={2}>
+  <Card title="New Requests" icon="bell">
+    When a client books an appointment
+  </Card>
+  
+  <Card title="Upcoming Appointments" icon="clock">
+    Reminders 24h and 1h before appointment
+  </Card>
+  
+  <Card title="Cancellations" icon="ban">
+    When a client cancels an appointment
+  </Card>
+  
+  <Card title="Modifications" icon="edit">
+    When appointment details are changed
+  </Card>
+</CardGroup>
+
+### Notification Filtering
+
+```typescript
+if (notification.notification_type === 'citas' && notification.appointment_id) {
+  // Handle appointment notification
+  router.push('/calendar');
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Respond quickly to requests">
+    Aim to respond to booking requests within 2-4 hours. Quick responses increase booking conversion by 45%.
+  </Accordion>
+  
+  <Accordion title="Keep calendar updated">
+    Update your availability at least weekly to reflect your current schedule.
+  </Accordion>
+  
+  <Accordion title="Set realistic time windows">
+    Allow buffer time between appointments for travel and preparation.
+  </Accordion>
+  
+  <Accordion title="Confirm appointments">
+    Send a confirmation message to clients 24 hours before the appointment.
+  </Accordion>
+  
+  <Accordion title="Be punctual">
+    Arrive on time or notify clients if you're running late.
+  </Accordion>
+  
+  <Accordion title="Document completed work">
+    Take before/after photos to add to your portfolio.
+  </Accordion>
+</AccordionGroup>
+
+## Integration with Jobs
+
+Appointments integrate with the jobs system:
+
+```typescript
+// Create job from appointment
+const jobFromAppointment = {
+  appointmentId: appointment._id,
+  requesterId: appointment.id_requester,
+  fixerId: currentFixerId,
+  jobMotive: appointment.appointment_description,
+  location: appointment.display_name_location,
+  scheduledTime: appointment.starting_time
+};
+```
+
+<Info>
+Creating a job from an appointment automatically links them, making it easy to track the entire service lifecycle.
+</Info>
+
+## Mobile Optimization
+
+The calendar is fully responsive:
+
+- **Mobile**: List view with swipe gestures
+- **Tablet**: Week view with touch interactions
+- **Desktop**: Full month/week grid view
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Appointments not showing">
+    Check your date filters and ensure you're viewing the correct calendar. Refresh the page if needed.
+  </Accordion>
+  
+  <Accordion title="Can't accept booking">
+    Verify you don't have a conflicting appointment at the same time.
+  </Accordion>
+  
+  <Accordion title="Virtual link not working">
+    Ensure the link was properly generated. Contact support if the issue persists.
+  </Accordion>
+  
+  <Accordion title="Time zone issues">
+    All times are displayed in your local time zone. Check your device settings if times appear incorrect.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+- Review [dashboard statistics](/fixers/dashboard) to track appointment trends
+- Set up your [digital wallet](/fixers/wallet) for appointment payments
+- Create compelling [job offers](/fixers/job-offers) to attract more bookings
+
+<Tip>
+Consider offering both virtual consultations and in-person services. Virtual consultations can help you quote jobs accurately before committing to an on-site visit.
+</Tip>

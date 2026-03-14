@@ -1,0 +1,500 @@
+---
+title: 'Authentication System'
+description: 'Comprehensive authentication with Google OAuth, GitHub, Discord, and JWT-based session management'
+icon: 'shield-check'
+---
+
+## Overview
+
+Servineo Frontend implements a robust multi-provider authentication system supporting traditional email/password login, OAuth providers (Google, GitHub, Discord), and advanced security features including two-factor authentication (2FA).
+
+## Authentication Methods
+
+The application supports multiple authentication strategies to provide flexibility and security:
+
+<CardGroup cols={2}>
+  <Card title="Email & Password" icon="envelope">
+    Traditional authentication with email validation and secure password handling
+  </Card>
+  <Card title="Google OAuth" icon="google">
+    Seamless Google account integration using `@react-oauth/google`
+  </Card>
+  <Card title="GitHub OAuth" icon="github">
+    GitHub authentication via OAuth flow
+  </Card>
+  <Card title="Discord OAuth" icon="discord">
+    Discord integration for community-based authentication
+  </Card>
+</CardGroup>
+
+## Core Components
+
+### Login Page
+
+The main login interface is located at `src/app/[locale]/login/page.tsx` and provides:
+
+- Form validation using **Zod** schema
+- Multi-language support via **next-intl**
+- Redux state management for user sessions
+- Secure token storage in localStorage
+
+```typescript title="Login Form Schema"
+const loginSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+});
+```
+
+### Google OAuth Integration
+
+The Google login component (`src/Components/login/google/LoginGoogle.tsx`) handles OAuth flow:
+
+```tsx title="Google OAuth Implementation"
+import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
+import { api, ApiResponse } from '../../../app/redux/services/loginApi';
+
+interface GoogleLoginResponse {
+  token: string;
+  user: {
+    id: string | number;
+    name: string;
+    email: string;
+    picture?: string;
+  };
+  message?: string;
+}
+
+export default function LoginGoogle({ onMensajeChange }: LoginGoogleProps) {
+  const handleSuccess = async (credentialResponse: CredentialResponse) => {
+    const res: ApiResponse<GoogleLoginResponse> = await api.post('/auth/google', {
+      credential: credentialResponse.credential,
+      token: credentialResponse.credential,
+      modo: 'login',
+    });
+
+    if (res.success && res.data) {
+      localStorage.setItem('servineo_token', res.data.token);
+      localStorage.setItem('servineo_user', JSON.stringify(res.data.user));
+      window.location.href = '/';
+    }
+  };
+
+  return <GoogleLogin onSuccess={handleSuccess} onError={handleError} />;
+}
+```
+
+<Info>
+The Google OAuth provider is configured in the root layout with `GoogleOAuthProvider` using the client ID from environment variables: `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
+</Info>
+
+## Authentication Flow
+
+<Steps>
+  <Step title="User Initiates Login">
+    User enters credentials or selects an OAuth provider (Google, GitHub, Discord)
+  </Step>
+  
+  <Step title="Credential Validation">
+    For email/password: Zod schema validates inputs before submission
+    For OAuth: Provider handles authentication and returns credentials
+  </Step>
+  
+  <Step title="Backend Authentication">
+    API request sent to `/login` endpoint with credentials
+    Server validates and returns JWT token + user data
+  </Step>
+  
+  <Step title="2FA Check (Optional)">
+    If user has 2FA enabled, additional verification is required:
+    - TOTP (Time-based One-Time Password)
+    - SMS codes
+    - Recovery codes
+  </Step>
+  
+  <Step title="Session Establishment">
+    Token stored in localStorage as `servineo_token`
+    User data stored as `servineo_user`
+    Redux store updated with user state
+  </Step>
+  
+  <Step title="Redirect to Dashboard">
+    User redirected to home page or intended destination
+  </Step>
+</Steps>
+
+## Two-Factor Authentication (2FA)
+
+Servineo supports advanced 2FA mechanisms for enhanced security:
+
+### 2FA Methods
+
+```typescript title="2FA Response Interface"
+interface LoginResponse {
+  token: string;
+  user: BackendUser;
+  message?: string;
+  requires2FA?: boolean;
+  mfaRequired?: boolean;
+  mfaMethods?: string[]; // ['totp', 'sms', 'session']
+  email?: string;
+}
+```
+
+### Available 2FA Options
+
+<Tabs>
+  <Tab title="TOTP (Authenticator App)">
+    Time-based One-Time Password using apps like Google Authenticator or Authy.
+    
+    **Implementation**: `src/Components/requester/Authenticator/AuthenticatorTOTPModal.tsx`
+    
+    - QR code generation for initial setup
+    - 6-digit code verification
+    - Rate limiting to prevent brute force attacks
+  </Tab>
+  
+  <Tab title="Passwordless Session">
+    Email-based magic link authentication.
+    
+    **Implementation**: `src/Components/requester/Authenticator/AuthenticatorSesion.tsx`
+    
+    - One-time link sent to registered email
+    - Temporary session token
+    - Auto-expires after set duration
+  </Tab>
+  
+  <Tab title="Recovery Codes">
+    Backup codes for account recovery when primary 2FA method unavailable.
+    
+    **Implementation**: `src/Components/requester/Authenticator/AuthenticatorCodigoModal.tsx`
+    
+    - Single-use recovery codes
+    - Generated during 2FA setup
+  </Tab>
+</Tabs>
+
+### 2FA API Service
+
+The 2FA service (`src/app/redux/services/twofactor.ts`) provides:
+
+```typescript title="2FA API Methods"
+// Generate QR code for TOTP setup
+export async function generateQr(): Promise<ApiResponse> {
+  return fetchWithAuth('/generate', { method: 'POST' });
+}
+
+// Verify TOTP token
+export async function verifyToken(token: string): Promise<ApiResponse> {
+  try {
+    return await fetchWithAuth('/verify', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  } catch (err: unknown) {
+    const apiErr = err as ApiError;
+    const status = apiErr?.status;
+    
+    // Account locked (423)
+    if (status === 423) {
+      const e = new Error('Account temporarily locked') as ApiError;
+      e.locked = true;
+      e.lockedUntil = data?.lockedUntil;
+      e.retryAfterSeconds = data?.retryAfterSeconds;
+      throw e;
+    }
+    
+    // Invalid token (400)
+    if (status === 400) {
+      const e = new Error('Invalid token') as ApiError;
+      e.attemptsLeft = data?.attemptsLeft;
+      e.attempts = data?.attempts;
+      throw e;
+    }
+  }
+}
+
+// Disable 2FA
+export async function disable2fa(): Promise<ApiResponse> {
+  return fetchWithAuth('/disable', { method: 'POST' });
+}
+```
+
+<Warning>
+**Rate Limiting**: After 5 failed TOTP attempts, the account is locked for a specified period. The API returns HTTP 423 (Locked) with `lockedUntil` timestamp and `retryAfterSeconds`.
+</Warning>
+
+## State Management
+
+### User Slice (Redux)
+
+User authentication state is managed via Redux Toolkit:
+
+```typescript title="src/app/redux/slice/userSlice.ts"
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { IUser } from '@/types/user';
+
+interface UserState {
+  user: IUser | null;
+  isAuthenticated: boolean;
+  loading: boolean;
+}
+
+const initialState: UserState = {
+  user: null,
+  isAuthenticated: false,
+  loading: false,
+};
+
+export const userSlice = createSlice({
+  name: 'user',
+  initialState,
+  reducers: {
+    setUser: (state, action: PayloadAction<UserState['user']>) => {
+      state.user = action.payload;
+      state.isAuthenticated = !!action.payload;
+    },
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.loading = action.payload;
+    },
+    logout: (state) => {
+      state.user = null;
+      state.isAuthenticated = false;
+    },
+  },
+});
+
+export const { setUser, setLoading, logout } = userSlice.actions;
+```
+
+### Login API Client
+
+The API client (`src/app/redux/services/loginApi.ts`) provides a centralized HTTP interface:
+
+```typescript title="API Client"
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+class ApiClient {
+  private baseUrl: string;
+  private timeout: number;
+
+  constructor(baseUrl: string, timeout = 10000) {
+    this.baseUrl = baseUrl;
+    this.timeout = timeout;
+  }
+
+  private async request<T>(url: string, options: RequestInit): Promise<ApiResponse<T>> {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), this.timeout);
+
+    try {
+      const response = await fetch(`${this.baseUrl}${url}`, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options.headers || {}),
+        },
+      });
+
+      const data = await response.json();
+      return { success: response.ok, data, message: data.message };
+    } catch (error: unknown) {
+      return { success: false, error: error.message };
+    } finally {
+      clearTimeout(id);
+    }
+  }
+
+  post<T, B = unknown>(url: string, body: B) {
+    return this.request<T>(url, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+}
+
+export const api = new ApiClient(BASE_URL);
+```
+
+<Tip>
+The API client includes automatic timeout handling (10 seconds default) and AbortController integration for proper request cancellation.
+</Tip>
+
+## OAuth Provider Flows
+
+### GitHub Authentication
+
+GitHub OAuth uses a popup window and message-based communication:
+
+```typescript title="GitHub OAuth Message Handling"
+useEffect(() => {
+  const handleMessage = (event: MessageEvent) => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    const apiOrigin = new URL(apiUrl).origin;
+    
+    if (event.origin !== apiOrigin) return;
+
+    const { type, token, user, message } = event.data;
+
+    if (type === 'GITHUB_AUTH_SUCCESS') {
+      localStorage.setItem('servineo_token', token);
+      localStorage.setItem('servineo_user', JSON.stringify(user));
+      window.location.href = '/';
+    }
+
+    if (type === 'GITHUB_AUTH_ERROR') {
+      // Handle error
+    }
+  };
+
+  window.addEventListener('message', handleMessage);
+  return () => window.removeEventListener('message', handleMessage);
+}, []);
+```
+
+### Discord Authentication
+
+Discord uses redirect-based OAuth flow:
+
+```typescript title="Discord OAuth Callback Handling"
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const provider = params.get('provider');
+  const code = params.get('code');
+  const error = params.get('error');
+
+  if (provider !== 'discord') return;
+
+  if (code) {
+    const loginDiscord = async () => {
+      const res = await api.post('/login/discord', { code });
+      
+      if (res.success && res.data) {
+        localStorage.setItem('servineo_token', res.data.token);
+        localStorage.setItem('servineo_user', JSON.stringify(res.data.user));
+        window.history.replaceState({}, '', '/login');
+        window.location.href = '/';
+      }
+    };
+    
+    loginDiscord();
+  }
+}, []);
+```
+
+## Notifications
+
+The authentication system uses a custom notification modal for user feedback:
+
+```typescript title="Notification Modal Usage"
+const [notification, setNotification] = useState<NotificationState>({
+  isOpen: false,
+  type: 'info',
+  title: '',
+  message: '',
+});
+
+// Success notification
+setNotification({
+  isOpen: true,
+  type: 'success',
+  title: 'Login Successful',
+  message: `Welcome back, ${user.name}!`,
+});
+
+// Error notification
+setNotification({
+  isOpen: true,
+  type: 'error',
+  title: 'Login Failed',
+  message: 'Invalid credentials. Please try again.',
+});
+```
+
+<Info>
+Notification types: `success`, `error`, `info`, `warning`. Auto-closes after 3 seconds unless `type='warning'`.
+</Info>
+
+## Environment Variables
+
+Required environment variables for authentication:
+
+```bash title=".env.local"
+# API Configuration
+NEXT_PUBLIC_API_URL=https://api.servineo.com
+
+# OAuth Providers
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
+NEXT_PUBLIC_GITHUB_CLIENT_ID=your_github_client_id
+NEXT_PUBLIC_DISCORD_CLIENT_ID=your_discord_client_id
+```
+
+## Security Features
+
+<CardGroup cols={2}>
+  <Card title="JWT Tokens" icon="key">
+    Secure JSON Web Tokens for stateless authentication
+  </Card>
+  <Card title="Rate Limiting" icon="shield">
+    Prevents brute force attacks on 2FA verification
+  </Card>
+  <Card title="CSRF Protection" icon="lock">
+    Origin validation for OAuth callbacks
+  </Card>
+  <Card title="Secure Storage" icon="database">
+    Tokens stored in localStorage with proper serialization
+  </Card>
+</CardGroup>
+
+## Password Reset Flow
+
+The application includes a complete password reset workflow:
+
+- `/login/forgotpass` - Request reset link
+- `/login/forgotpass/verify` - Email verification
+- `/login/forgotpass/resend` - Resend verification email
+
+<Note>
+Password reset implements email verification to ensure security. Links expire after a set duration.
+</Note>
+
+## User Normalization
+
+Different OAuth providers return varying user data structures. The login system normalizes this:
+
+```typescript title="User Data Normalization"
+const normalizedUser = {
+  ...datos.user,
+  _id: (datos.user._id || datos.user.id) as string,
+  id: (datos.user.id || datos.user._id) as string,
+  name: (datos.user.name || datos.user.displayName || 'Usuario') as string,
+  email: datos.user.email as string,
+  url_photo: (datos.user.picture || datos.user.url_photo || null) as string | undefined,
+  role: (datos.user.role || 'requester') as 'requester' | 'fixer' | 'admin',
+};
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Always validate on both client and server">
+    Use Zod schemas for client-side validation, but never trust client input on the backend
+  </Step>
+  
+  <Step title="Implement proper token refresh">
+    JWT tokens should expire and be refreshed periodically
+  </Step>
+  
+  <Step title="Clear sensitive data on logout">
+    Remove tokens and user data from localStorage when user logs out
+  </Step>
+  
+  <Step title="Use HTTPS in production">
+    Always use secure connections to prevent token interception
+  </Step>
+</Steps>
+
+## Related Documentation
+
+- [Multi-language Support](/features/multilingual) - i18n integration for auth forms
+- [Notifications](/features/notifications) - User feedback during authentication

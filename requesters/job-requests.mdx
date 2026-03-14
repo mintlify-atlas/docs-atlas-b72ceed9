@@ -1,0 +1,378 @@
+---
+title: 'Job Requests'
+description: 'Creating and managing job requests on Servineo'
+---
+
+## Overview
+
+Job requests allow requesters to formally request services from fixers. The job request system includes detailed form validation, location selection, time scheduling, and rate suggestions.
+
+## Job Request Interface
+
+The job request modal is accessible from job offer detail pages:
+
+```typescript
+interface JobRequestData {
+  jobMotive: string;
+  jobDescription: string;
+  locationOption: 'keep' | 'modify';
+  startTime: string;
+  endTime: string;
+  suggestedRate: string;
+}
+```
+
+## Creating a Job Request
+
+<Steps>
+  <Step title="Select an Offer">
+    Browse job offers and click on the one you want to request
+  </Step>
+  <Step title="Click Request Button">
+    Open the job request modal from the offer detail page
+  </Step>
+  <Step title="Fill Request Form">
+    Complete all required fields with job details
+  </Step>
+  <Step title="Set Location">
+    Choose to keep your default location or set a custom one
+  </Step>
+  <Step title="Schedule Time">
+    Select your preferred start and end times
+  </Step>
+  <Step title="Submit Request">
+    Review and submit your job request
+  </Step>
+</Steps>
+
+## Form Fields
+
+### Job Motive (Required)
+
+**Purpose**: Brief title or reason for the job
+
+- **Validation**: Text only (no numbers)
+- **Max Length**: 50 characters
+- **Example**: "Kitchen sink repair"
+
+```typescript
+const validateTextOnly = (text: string): string => {
+  return text.replace(/[0-9]/g, '');
+};
+```
+
+<Note>
+The job motive must be filled before you can proceed to the job description field.
+</Note>
+
+### Job Description (Required)
+
+**Purpose**: Detailed explanation of the work needed
+
+- **Validation**: Text only, requires job motive to be filled first
+- **Max Length**: 300 characters
+- **Behavior**: Disabled until job motive is completed
+
+```typescript
+if (name === 'jobDescription' && !formData.jobMotive.trim()) {
+  setFieldErrors((prev) => ({
+    ...prev,
+    jobDescription: 'Primero debe completar el motivo del trabajo',
+  }));
+}
+```
+
+<Warning>
+Be specific in your description. Include details about:
+- What needs to be done
+- Current condition or problem
+- Any special requirements
+- Materials needed (if known)
+</Warning>
+
+### Location Selection
+
+Two options are available:
+
+#### Keep Saved Location
+
+Use your default profile location
+
+- Automatically uses coordinates from your profile
+- Faster for repeat requests
+- Can be updated in profile settings
+
+#### Modify Location
+
+Set a custom location for this specific job
+
+- **Interactive Map**: Click to set exact coordinates
+- **Draggable Marker**: Fine-tune the position
+- **Address Display**: Shows reverse-geocoded address
+- **Default Center**: La Paz, Bolivia (-16.5, -68.15)
+
+```typescript
+interface Location {
+  lat: number;
+  lng: number;
+}
+
+const currentMapLocation = useMemo(() => {
+  if (formData.locationOption === 'modify' && newLocation) {
+    return newLocation;
+  }
+  return initialLocation || { lat: -16.5, lng: -68.15 };
+}, [formData.locationOption, newLocation, initialLocation]);
+```
+
+<Tip>
+Use the map's zoom controls to find the exact address. Click directly on the map to set a precise location.
+</Tip>
+
+### Time Availability
+
+Specify when you're available for the service:
+
+#### Start Time
+
+- **Format**: 24-hour time (HH:MM)
+- **Range**: 07:00 to 21:00
+- **Validation**: Must be within allowed hours
+
+#### End Time
+
+- **Format**: 24-hour time (HH:MM)
+- **Range**: 07:00 to 21:00
+- **Validation**: Must be after start time
+
+#### Duration Constraints
+
+- **Minimum**: 2 hours
+- **Maximum**: 8 hours
+
+```typescript
+const validateTimes = (start: string, end: string): string => {
+  const startTime = new Date(`2000-01-01T${start}`);
+  const endTime = new Date(`2000-01-01T${end}`);
+  
+  const minTime = new Date(`2000-01-01T07:00`);
+  const maxTime = new Date(`2000-01-01T21:00`);
+  
+  if (startTime < minTime || startTime > maxTime) {
+    return 'La hora de inicio debe estar entre 7:00 y 21:00';
+  }
+  
+  if (endTime <= startTime) {
+    return 'La hora de fin debe ser mayor a la hora de inicio';
+  }
+  
+  const durationHours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+  
+  if (durationHours < 2) {
+    return 'La duración mínima del trabajo es de 2 horas';
+  }
+  
+  if (durationHours > 8) {
+    return 'La duración máxima del trabajo es de 8 horas';
+  }
+  
+  return '';
+};
+```
+
+<Info>
+The system displays the calculated duration in hours and minutes as you enter times.
+</Info>
+
+### Suggested Rate (Optional)
+
+**Purpose**: Propose a price for the service
+
+- **Format**: Numeric value in bolivianos (Bs.)
+- **Optional**: Can be left empty
+- **Negotiable**: Fixer may accept, counter, or decline
+
+## Form Validation
+
+### Real-time Validation
+
+The form validates inputs as you type:
+
+- **Field Dependencies**: Description requires motive first
+- **Time Validation**: Continuous checking of time ranges
+- **Character Filtering**: Removes invalid characters automatically
+
+### Submit Validation
+
+Before submission, the form checks:
+
+```typescript
+const isFormValid = useMemo(() => {
+  return (
+    formData.jobMotive.trim() !== '' &&
+    formData.jobDescription.trim() !== '' &&
+    formData.startTime !== '' &&
+    formData.endTime !== '' &&
+    !timeError
+  );
+}, [
+  formData.jobMotive,
+  formData.jobDescription,
+  formData.startTime,
+  formData.endTime,
+  timeError,
+]);
+```
+
+### Error Messages
+
+Clear error messages guide users:
+
+- **Field Errors**: Displayed below each invalid field
+- **General Errors**: Shown at form bottom
+- **Time Errors**: Highlighted in red with specific message
+
+<Warning>
+The submit button is disabled until all required fields are valid. Check for red error messages if you cannot submit.
+</Warning>
+
+## Payload Structure
+
+When submitted, the request creates this payload:
+
+```typescript
+interface CreateJobRequestPayload {
+  title: string;                    // From jobMotive
+  description: string;              // From jobDescription
+  location: {
+    type: 'Point';
+    coordinates: [string, string];  // [longitude, latitude]
+  };
+  startTime: string;               // ISO 8601 format
+  endTime: string;                 // ISO 8601 format
+  price: string | number;          // Suggested rate
+  fixerId: string;                 // Target fixer ID
+  requesterId: string;             // Your user ID
+  appointmentId?: string;          // If created from appointment
+  offerId?: string;                // Job offer ID
+}
+```
+
+## Job Request Status
+
+After creation, job requests can have different statuses:
+
+```typescript
+type JobRequestStatus = 
+  | 'pending'      // Awaiting fixer response
+  | 'accepted'     // Fixer accepted the request
+  | 'in_progress'  // Work is ongoing
+  | 'completed'    // Work finished, pending payment
+  | 'cancelled'    // Request was cancelled
+  | 'paid';        // Payment completed
+```
+
+<Steps>
+  <Step title="Pending">
+    Request submitted, waiting for fixer to review
+  </Step>
+  <Step title="Accepted">
+    Fixer accepted, proceed to schedule appointment
+  </Step>
+  <Step title="In Progress">
+    Appointment scheduled, work is being done
+  </Step>
+  <Step title="Completed">
+    Work finished, proceed to payment
+  </Step>
+  <Step title="Paid">
+    Payment completed, you can leave a review
+  </Step>
+</Steps>
+
+## Managing Requests
+
+### Viewing Your Requests
+
+Access your job requests from:
+
+- **Dashboard**: View recent requests
+- **Request History**: See all past and current requests
+- **Appointment View**: Linked appointments
+
+### Request Details
+
+Each request shows:
+
+```typescript
+interface JobRequest {
+  _id: string;
+  title: string;
+  description: string;
+  location?: {
+    type: 'Point';
+    coordinates: [string, string];
+  };
+  startTime?: string;
+  endTime?: string;
+  price: number;
+  requesterId: string;
+  fixerId?: string;
+  status: JobRequestStatus;
+  createdAt: string;
+  updatedAt?: string;
+  rating?: number;
+  comment?: string;
+}
+```
+
+### Cancellation
+
+You can cancel requests that are still pending:
+
+- Navigate to request details
+- Click "Cancel Request" button
+- Confirm cancellation
+- Status updates to "cancelled"
+
+<Warning>
+Once a request is accepted or in progress, cancellation may require coordination with the fixer and could incur fees.
+</Warning>
+
+## Best Practices
+
+### Writing Effective Descriptions
+
+1. **Be Specific**: Clearly describe the problem or task
+2. **Include Context**: Mention relevant details (size, materials, access)
+3. **Set Expectations**: Indicate urgency and quality expectations
+4. **Ask Questions**: If unsure, ask the fixer for input
+
+### Location Accuracy
+
+- **Verify Address**: Double-check the map marker position
+- **Add Details**: Include apartment numbers, building names
+- **Consider Access**: Mention parking or entry requirements
+
+### Time Selection
+
+- **Buffer Time**: Add extra time for complex jobs
+- **Availability**: Ensure you'll be present during the scheduled time
+- **Flexibility**: Allow some flexibility for unexpected delays
+
+### Pricing
+
+- **Research**: Check similar services for price ranges
+- **Fair Rates**: Offer competitive but fair rates
+- **Negotiation**: Be open to fixer's counter-offers
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Appointments" icon="calendar" href="/requesters/appointments">
+    Schedule appointments for accepted requests
+  </Card>
+  <Card title="Payments" icon="credit-card" href="/requesters/payments">
+    Complete payments after job completion
+  </Card>
+</CardGroup>

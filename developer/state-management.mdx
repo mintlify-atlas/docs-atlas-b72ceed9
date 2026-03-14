@@ -1,0 +1,684 @@
+---
+title: 'State Management'
+description: 'Redux Toolkit architecture and data flow in Servineo Frontend'
+icon: 'database'
+---
+
+## Overview
+
+Servineo Frontend uses **Redux Toolkit** (RTK) for state management with **RTK Query** for server state and caching. This modern approach provides:
+
+- ✅ Type-safe state management
+- ✅ Automatic API caching and invalidation
+- ✅ Optimistic updates
+- ✅ DevTools integration
+- ✅ Simplified Redux patterns
+
+## Store Configuration
+
+The Redux store is configured in `src/app/redux/store.ts`:
+
+```typescript src/app/redux/store.ts
+import { configureStore } from '@reduxjs/toolkit';
+import { setupListeners } from '@reduxjs/toolkit/query';
+import { baseApi } from './services/baseApi';
+import userReducer from './slice/userSlice';
+import fixerReducer from './slice/fixerSlice';
+import filterReducer from './slice/filterSlice';
+import jobOffersReducer from './slice/jobOffersSlice';
+import jobOfertReducer from './slice/jobOfert';
+import fixersByJobReducer from './slice/fixersByJobSlice';
+import logger from 'redux-logger';
+
+export const store = configureStore({
+  reducer: {
+    [baseApi.reducerPath]: baseApi.reducer,
+    user: userReducer,
+    fixer: fixerReducer,
+    filters: filterReducer,
+    jobOffers: jobOffersReducer,
+    jobOfert: jobOfertReducer,
+    fixersByJob: fixersByJobReducer,
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().concat(baseApi.middleware).concat(logger),
+  devTools: process.env.NODE_ENV !== 'production',
+});
+
+setupListeners(store.dispatch);
+
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
+```
+
+<Info>
+  `setupListeners(store.dispatch)` enables automatic refetching behaviors like `refetchOnFocus` and `refetchOnReconnect` for RTK Query.
+</Info>
+
+## Redux Provider Setup
+
+The store is provided to the application using a client component wrapper:
+
+<CodeGroup>
+
+```tsx src/app/providers.tsx
+'use client';
+
+import { Provider } from 'react-redux';
+import { store } from './redux/store';
+import { TourProviderWrapper } from '@/Components/Tour/TourProviderWrapper';
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <Provider store={store}>
+      <TourProviderWrapper>{children}</TourProviderWrapper>
+    </Provider>
+  );
+}
+```
+
+```tsx src/app/[locale]/layout.tsx
+import { Providers } from '../providers';
+
+export default async function RootLayout({ children, params }: Props) {
+  // ...
+  return (
+    <html lang={locale}>
+      <body>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <Providers>
+            {children}
+          </Providers>
+        </NextIntlClientProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+</CodeGroup>
+
+<Warning>
+  The Redux Provider must be a **client component** (`'use client'`). It's wrapped in `src/app/providers.tsx` to allow the root layout to remain a server component.
+</Warning>
+
+## Typed Hooks
+
+Always use pre-typed hooks instead of the standard `useDispatch` and `useSelector`:
+
+```typescript src/app/redux/hooks.ts
+import { useDispatch, useSelector } from 'react-redux';
+import type { RootState, AppDispatch } from './store';
+
+export const useAppDispatch = useDispatch.withTypes<AppDispatch>();
+export const useAppSelector = useSelector.withTypes<RootState>();
+```
+
+**Usage in components:**
+
+```typescript
+import { useAppDispatch, useAppSelector } from '@/app/redux/hooks';
+import { setUser, logout } from '@/app/redux/slice/userSlice';
+
+function MyComponent() {
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.user.user);
+  const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
+
+  const handleLogout = () => {
+    dispatch(logout());
+  };
+
+  return <div>{user?.name}</div>;
+}
+```
+
+<Tip>
+  Using typed hooks provides full TypeScript IntelliSense for state shape and action creators.
+</Tip>
+
+## Redux Slices
+
+State is organized into domain-specific slices using `createSlice`:
+
+### User Slice
+
+Manages authentication and user profile state:
+
+```typescript src/app/redux/slice/userSlice.ts
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { IUser } from '@/types/user';
+
+interface UserState {
+  user: IUser | null;
+  isAuthenticated: boolean;
+  loading: boolean;
+}
+
+const initialState: UserState = {
+  user: null,
+  isAuthenticated: false,
+  loading: false,
+};
+
+export const userSlice = createSlice({
+  name: 'user',
+  initialState,
+  reducers: {
+    setUser: (state, action: PayloadAction<UserState['user']>) => {
+      state.user = action.payload;
+      state.isAuthenticated = !!action.payload;
+    },
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.loading = action.payload;
+    },
+    logout: (state) => {
+      state.user = null;
+      state.isAuthenticated = false;
+    },
+  },
+});
+
+export const { setUser, setLoading, logout } = userSlice.actions;
+export default userSlice.reducer;
+```
+
+**Key Actions:**
+
+- `setUser(user)` - Set current user and mark as authenticated
+- `setLoading(boolean)` - Toggle loading state
+- `logout()` - Clear user data and mark as unauthenticated
+
+### Other Slices
+
+| Slice | File | Lines | Purpose |
+|-------|------|-------|----------|
+| `user` | userSlice.ts | 36 | Authentication and user profile |
+| `fixer` | fixerSlice.ts | 37 | Service provider data |
+| `filters` | filterSlice.ts | 125 | Search and filter criteria |
+| `jobOffers` | jobOffersSlice.ts | 40 | Job listings state |
+| `jobOfert` | jobOfert.ts | 295 | Single job offer details |
+| `fixersByJob` | fixersByJobSlice.ts | 43 | Fixer-job associations |
+
+<Info>
+  The `filters` slice (125 lines) and `jobOfert` slice (295 lines) are the most complex, handling advanced search logic and job detail state.
+</Info>
+
+## RTK Query - Base API
+
+All API endpoints extend from a base API configuration:
+
+```typescript src/app/redux/services/baseApi.ts
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL + '/api';
+
+export const baseQuery = fetchBaseQuery({
+  baseUrl: API_URL,
+  prepareHeaders: (headers) => {
+    // Authentication headers can be added here
+    return headers;
+  },
+  credentials: 'include',  // Include cookies for authentication
+});
+
+export const baseApi = createApi({
+  reducerPath: 'api',
+  baseQuery,
+  tagTypes: [
+    'User',
+    'Job',
+    'Statistics',
+    'JobOffer',
+    'Requester',
+    'SearchHistory',
+    'Experience',
+    'Portfolio',
+    'Certification',
+  ],
+  endpoints: () => ({}),  // Extended by service files
+});
+```
+
+**Configuration Highlights:**
+
+- **Base URL**: Constructed from `NEXT_PUBLIC_API_URL` environment variable
+- **Credentials**: Cookies included for session-based authentication
+- **Tag Types**: Define cache invalidation strategies
+- **Extensible**: Service files inject endpoints using `injectEndpoints()`
+
+<Note>
+  The API URL uses Next.js API rewrites (configured in `next.config.ts`) to proxy requests to the backend server running on port 8000.
+</Note>
+
+## API Services
+
+API services are organized by domain and extend the base API:
+
+### Service Structure
+
+```
+src/app/redux/services/
+├── baseApi.ts              # Base configuration
+├── loginApi.ts             # Authentication
+├── userApi.ts              # User CRUD
+├── jobApi.ts               # Job operations
+├── jobOfferApi.ts          # Single job offer
+├── jobOffersApi.ts         # Job listings
+├── fixerApi.ts             # Fixer operations
+├── searchApi.ts            # Search
+├── searchHistoryApi.ts     # Search history
+├── dashboardApi.ts         # Analytics
+├── statisticsApi.ts        # Statistics
+├── experiencesApi.ts       # Experience CRUD
+├── portafolioApi.ts        # Portfolio management
+├── certifications.ts       # Certifications
+├── activityApi.ts          # Activity tracking
+└── trackingAppointmentsApi.ts  # Appointments
+```
+
+### Example: User API
+
+```typescript
+import { baseApi } from './baseApi';
+import { IUser } from '@/types/user';
+
+export const userApi = baseApi.injectEndpoints({
+  endpoints: (builder) => ({
+    getUser: builder.query<IUser, string>({
+      query: (userId) => `users/${userId}`,
+      providesTags: (result, error, userId) => [{ type: 'User', id: userId }],
+    }),
+    updateUser: builder.mutation<IUser, Partial<IUser>>({
+      query: (user) => ({
+        url: `users/${user.id}`,
+        method: 'PATCH',
+        body: user,
+      }),
+      invalidatesTags: (result, error, { id }) => [{ type: 'User', id }],
+    }),
+  }),
+});
+
+export const { useGetUserQuery, useUpdateUserMutation } = userApi;
+```
+
+**RTK Query automatically generates:**
+
+- `useGetUserQuery` - Hook for fetching user data
+- `useUpdateUserMutation` - Hook for updating user data
+- Automatic caching and refetching logic
+- Loading and error states
+
+### Using RTK Query Hooks
+
+```typescript
+import { useGetUserQuery, useUpdateUserMutation } from '@/app/redux/services/userApi';
+
+function UserProfile({ userId }: { userId: string }) {
+  const { data: user, isLoading, error } = useGetUserQuery(userId);
+  const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error loading user</div>;
+
+  const handleUpdate = async () => {
+    try {
+      await updateUser({ id: userId, name: 'New Name' }).unwrap();
+      // Success!
+    } catch (err) {
+      // Handle error
+    }
+  };
+
+  return (
+    <div>
+      <h1>{user.name}</h1>
+      <button onClick={handleUpdate} disabled={isUpdating}>
+        Update
+      </button>
+    </div>
+  );
+}
+```
+
+<Tip>
+  RTK Query hooks provide:
+  - `data` - The response data
+  - `isLoading` - Initial fetch loading state
+  - `isFetching` - Any fetch (including refetch) loading state
+  - `error` - Error object if request failed
+  - `refetch()` - Manually trigger refetch
+</Tip>
+
+## Cache Invalidation Strategy
+
+RTK Query uses **tags** to manage cache invalidation:
+
+### Tag Types
+
+Defined in `baseApi.ts`:
+
+```typescript
+tagTypes: [
+  'User',
+  'Job',
+  'Statistics',
+  'JobOffer',
+  'Requester',
+  'SearchHistory',
+  'Experience',
+  'Portfolio',
+  'Certification',
+]
+```
+
+### Providing Tags
+
+Queries provide tags to mark cached data:
+
+```typescript
+getJobOffers: builder.query<JobOffer[], void>({
+  query: () => 'job-offers',
+  providesTags: (result) =>
+    result
+      ? [...result.map(({ id }) => ({ type: 'JobOffer' as const, id })), 'JobOffer']
+      : ['JobOffer'],
+})
+```
+
+### Invalidating Tags
+
+Mutations invalidate tags to trigger refetch:
+
+```typescript
+createJobOffer: builder.mutation<JobOffer, Partial<JobOffer>>({
+  query: (jobOffer) => ({
+    url: 'job-offers',
+    method: 'POST',
+    body: jobOffer,
+  }),
+  invalidatesTags: ['JobOffer'],  // Refetch all job offer queries
+})
+```
+
+<Info>
+  When a mutation invalidates a tag, all queries providing that tag will automatically refetch to ensure UI stays in sync.
+</Info>
+
+## Feature Hooks
+
+Complex business logic is encapsulated in feature-specific hooks:
+
+### Advanced Search Logic
+
+```typescript src/app/redux/features/adv-search/useAdvSearchLogic.ts
+// Encapsulates search state, filters, and URL synchronization
+export function useAdvSearchLogic() {
+  const filters = useAppSelector((state) => state.filters);
+  const dispatch = useAppDispatch();
+  
+  // Complex search logic here
+  return {
+    filters,
+    updateFilter,
+    resetFilters,
+    searchResults,
+  };
+}
+```
+
+### Job Offers Hooks
+
+```typescript src/app/redux/features/jobOffers/jobOffersHooks.ts
+// Job offer-specific business logic
+export function useJobOffers() {
+  const { data, isLoading } = useGetJobOffersQuery();
+  
+  // Additional logic: filtering, sorting, pagination
+  return {
+    jobOffers: data,
+    isLoading,
+    // ... derived state and actions
+  };
+}
+```
+
+## Middleware
+
+The store uses the following middleware stack:
+
+```typescript
+middleware: (getDefaultMiddleware) =>
+  getDefaultMiddleware()      // RTK default middleware
+    .concat(baseApi.middleware)  // RTK Query cache management
+    .concat(logger),            // Redux logger (dev only)
+```
+
+### Redux Logger
+
+```typescript
+import logger from 'redux-logger';
+```
+
+Logs all actions and state changes to the browser console in development.
+
+<Warning>
+  Redux logger is currently configured to run in all environments. For production builds, conditionally add logger:
+  
+  ```typescript
+  const middleware = getDefaultMiddleware().concat(baseApi.middleware);
+  if (process.env.NODE_ENV === 'development') {
+    middleware.concat(logger);
+  }
+  ```
+</Warning>
+
+### RTK Query Middleware
+
+The `baseApi.middleware` provides:
+
+- Automatic cache management
+- Refetching on focus/reconnect
+- Request deduplication
+- Polling support
+- Optimistic updates
+
+## DevTools
+
+Redux DevTools are enabled in development:
+
+```typescript
+devTools: process.env.NODE_ENV !== 'production'
+```
+
+Install the [Redux DevTools Extension](https://github.com/reduxjs/redux-devtools) for:
+
+- Time-travel debugging
+- Action history
+- State diff visualization
+- Action replay
+
+## State Flow Diagram
+
+```
+┌─────────────┐
+│  Component  │
+└──────┬──────┘
+       │ useAppSelector
+       ▼
+┌─────────────┐
+│ Redux Store │
+│  ┌───────┐  │
+│  │ user  │  │
+│  │ fixer │  │
+│  │ api   │◄─┼─── RTK Query Cache
+│  └───────┘  │
+└──────┬──────┘
+       │ dispatch(action)
+       ▼
+┌─────────────┐
+│   Reducer   │
+│   or API    │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│   Backend   │
+│  (port 8000) │
+└─────────────┘
+```
+
+## Best Practices
+
+### 1. Use Typed Hooks
+
+✅ **Do:**
+```typescript
+import { useAppDispatch, useAppSelector } from '@/app/redux/hooks';
+```
+
+❌ **Don't:**
+```typescript
+import { useDispatch, useSelector } from 'react-redux';
+```
+
+### 2. Prefer RTK Query for API Calls
+
+✅ **Do:**
+```typescript
+const { data } = useGetJobOffersQuery();
+```
+
+❌ **Don't:**
+```typescript
+const [data, setData] = useState([]);
+useEffect(() => {
+  fetch('/api/job-offers').then(res => setData(res.json()));
+}, []);
+```
+
+### 3. Co-locate Feature Logic
+
+Keep related hooks, selectors, and utilities together:
+
+```
+features/jobOffers/
+├── jobOffersHooks.ts
+├── selectors.ts
+├── parsers.ts
+└── types.ts
+```
+
+### 4. Use Selectors for Derived State
+
+```typescript src/app/redux/features/jobOffers/selectors.ts
+import { createSelector } from '@reduxjs/toolkit';
+import { RootState } from '@/app/redux/store';
+
+export const selectActiveJobOffers = createSelector(
+  [(state: RootState) => state.jobOffers],
+  (jobOffers) => jobOffers.filter((job) => job.status === 'active')
+);
+```
+
+### 5. Handle Loading and Error States
+
+```typescript
+const { data, isLoading, error } = useGetJobOffersQuery();
+
+if (isLoading) return <Spinner />;
+if (error) return <ErrorMessage error={error} />;
+if (!data) return <EmptyState />;
+
+return <JobOfferList offers={data} />;
+```
+
+## Common Patterns
+
+### Optimistic Updates
+
+```typescript
+updateJobOffer: builder.mutation({
+  query: ({ id, ...patch }) => ({
+    url: `job-offers/${id}`,
+    method: 'PATCH',
+    body: patch,
+  }),
+  async onQueryStarted({ id, ...patch }, { dispatch, queryFulfilled }) {
+    // Optimistically update cache
+    const patchResult = dispatch(
+      jobOfferApi.util.updateQueryData('getJobOffer', id, (draft) => {
+        Object.assign(draft, patch);
+      })
+    );
+    try {
+      await queryFulfilled;
+    } catch {
+      patchResult.undo();  // Rollback on error
+    }
+  },
+})
+```
+
+### Conditional Queries
+
+```typescript
+const { data } = useGetUserQuery(userId, {
+  skip: !userId,  // Don't fetch if userId is null/undefined
+});
+```
+
+### Polling
+
+```typescript
+const { data } = useGetJobOffersQuery(undefined, {
+  pollingInterval: 30000,  // Refetch every 30 seconds
+});
+```
+
+## Migration Notes
+
+<Info>
+  The codebase currently has both old-style API services (`src/services/`) and new RTK Query services (`src/app/redux/services/`). New features should use RTK Query exclusively.
+</Info>
+
+**Old pattern:**
+```typescript src/services/jobs.ts
+export async function getJobs() {
+  const response = await fetch('/api/jobs');
+  return response.json();
+}
+```
+
+**New pattern:**
+```typescript src/app/redux/services/jobApi.ts
+export const jobApi = baseApi.injectEndpoints({
+  endpoints: (builder) => ({
+    getJobs: builder.query<Job[], void>({
+      query: () => 'jobs',
+      providesTags: ['Job'],
+    }),
+  }),
+});
+```
+
+## Summary
+
+Servineo's state management architecture provides:
+
+- ✅ **Type Safety**: Full TypeScript integration
+- ✅ **Automatic Caching**: RTK Query manages server state
+- ✅ **DevTools**: Time-travel debugging and state inspection
+- ✅ **Optimistic Updates**: Instant UI feedback
+- ✅ **Code Organization**: Feature-based structure
+- ✅ **Best Practices**: Modern Redux patterns
+
+<CardGroup cols={2}>
+  <Card title="Redux Toolkit Docs" icon="book" href="https://redux-toolkit.js.org/">
+    Official Redux Toolkit documentation
+  </Card>
+  <Card title="RTK Query Docs" icon="server" href="https://redux-toolkit.js.org/rtk-query/overview">
+    Learn more about RTK Query
+  </Card>
+</CardGroup>

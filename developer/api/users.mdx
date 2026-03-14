@@ -1,0 +1,519 @@
+---
+title: 'User Management API'
+description: 'User profiles, roles, and account management endpoints'
+---
+
+## Overview
+
+The User API provides endpoints for managing user profiles, roles, locations, and descriptions. It supports both requesters and fixers with role-specific functionality.
+
+## Endpoints
+
+### Create User Profile
+
+Create a new user profile with complete information.
+
+```typescript
+POST /api/user-profiles
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useCreateUserProfileMutation } from '@/app/redux/services/userApi';
+
+const [createProfile, { isLoading, error }] = useCreateUserProfileMutation();
+```
+
+**Request Body:**
+
+<ParamField body="user.id" type="string" required>
+  User ID
+</ParamField>
+
+<ParamField body="user.name" type="string" required>
+  User's full name
+</ParamField>
+
+<ParamField body="user.email" type="string" required>
+  User's email address
+</ParamField>
+
+<ParamField body="user.phone" type="string" required>
+  User's phone number
+</ParamField>
+
+<ParamField body="user.role" type="string" required>
+  User role: `fixer` or `requester`
+</ParamField>
+
+<ParamField body="user.urlPhoto" type="string">
+  URL to user's profile photo
+</ParamField>
+
+<ParamField body="profile" type="object" required>
+  Profile-specific data (services, location, payment methods, etc.)
+</ParamField>
+
+**Example:**
+
+<CodeGroup>
+```typescript Usage
+const profile: IUserProfile = {
+  user: {
+    id: '507f1f77bcf86cd799439011',
+    name: 'John Doe',
+    email: 'john@example.com',
+    phone: '+598 99 123 456',
+    role: 'fixer',
+    urlPhoto: 'https://example.com/photo.jpg'
+  },
+  profile: {
+    ci: '12345678',
+    location: {
+      lat: -34.9011,
+      lng: -56.1645,
+      address: 'Av. 18 de Julio 1234, Montevideo'
+    },
+    services: [
+      { id: 'plumbing', name: 'Plomería', custom: false },
+      { id: 'custom-1', name: 'Reparaciones generales', custom: true }
+    ],
+    selectedServiceIds: ['plumbing', 'custom-1'],
+    paymentMethods: [
+      { type: 'cash' },
+      { type: 'qr', accountInfo: 'mercadopago' }
+    ],
+    experiences: [],
+    terms: {
+      accepted: true,
+      acceptedAt: new Date()
+    },
+    status: 'pending'
+  }
+};
+
+await createProfile(profile);
+```
+
+```typescript Response Type
+interface IUserProfile {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    role: 'fixer' | 'requester';
+    urlPhoto?: string;
+  };
+  profile: {
+    ci: string;
+    photoUrl?: string;
+    location?: {
+      lat: number;
+      lng: number;
+      address?: string;
+    } | null;
+    services: Array<{
+      id: string;
+      name: string;
+      custom?: boolean;
+    }>;
+    selectedServiceIds: string[];
+    paymentMethods: Array<{
+      type: string;
+      accountInfo?: string;
+    }>;
+    experiences: Array<IExperience>;
+    vehicle?: {
+      hasVehicle?: boolean;
+      type?: string;
+      details?: string;
+    };
+    terms: {
+      accepted: boolean;
+      acceptedAt?: Date;
+    };
+    additionalInfo?: {
+      bio?: string;
+      languages?: string[];
+      availability?: Record<string, boolean>;
+      hourlyRate?: number;
+    };
+    status: 'pending' | 'approved' | 'rejected';
+    createdAt: Date;
+    updatedAt: Date;
+  };
+}
+```
+</CodeGroup>
+
+### Get All User Profiles
+
+Retrieve all user profiles.
+
+```typescript
+GET /api/user-profiles
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useGetUserProfilesQuery } from '@/app/redux/services/userApi';
+
+const { data: profiles, isLoading } = useGetUserProfilesQuery();
+```
+
+**Response:**
+
+```typescript
+IUserProfile[]
+```
+
+### Get User by ID
+
+Retrieve a specific user by their ID.
+
+```typescript
+GET /api/user/{id}
+```
+
+**RTK Query Hooks:**
+
+```typescript
+import { 
+  useGetUserByIdQuery,
+  useLazyGetUserByIdQuery 
+} from '@/app/redux/services/userApi';
+
+// Standard query (auto-fetches)
+const { data: user, isLoading } = useGetUserByIdQuery(userId);
+
+// Lazy query (manual trigger)
+const [getUser, { data: user }] = useLazyGetUserByIdQuery();
+await getUser(userId);
+```
+
+**Response:**
+
+<ResponseField name="_id" type="string">
+  User's unique identifier
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  User's full name
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  User's email address
+</ResponseField>
+
+<ResponseField name="role" type="string">
+  User role: `requester`, `fixer`, or `admin`
+</ResponseField>
+
+<ResponseField name="url_photo" type="string">
+  URL to user's profile photo
+</ResponseField>
+
+<ResponseField name="telefono" type="string">
+  User's phone number
+</ResponseField>
+
+<ResponseField name="ubicacion" type="object">
+  User's location data (lat, lng, direccion, departamento, pais)
+</ResponseField>
+
+<ResponseField name="workLocation" type="object">
+  Fixer's work location (for service providers)
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  User's profile description
+</ResponseField>
+
+<CodeGroup>
+```typescript Response Type
+interface IUser {
+  _id?: string;
+  id?: string;
+  name: string;
+  email: string;
+  url_photo?: string;
+  role: 'requester' | 'fixer' | 'admin';
+  authProviders?: Array<{
+    provider: string;
+    providerId: string;
+    password?: string;
+  }>;
+  telefono?: string;
+  ubicacion?: {
+    lat?: number;
+    lng?: number;
+    direccion?: string;
+    departamento?: string;
+    pais?: string;
+  };
+  ci?: string;
+  servicios?: string[];
+  vehiculo?: {
+    hasVehiculo?: boolean;
+    tipoVehiculo?: string;
+  };
+  fixerProfile?: string;
+  acceptTerms?: boolean;
+  metodoPago?: {
+    hasEfectivo?: boolean;
+    qr?: boolean;
+    tarjetaCredito?: boolean;
+  };
+  experience?: {
+    descripcion?: string;
+  };
+  workLocation?: {
+    lat?: number;
+    lng?: number;
+    direccion?: string;
+    departamento?: string;
+    pais?: string;
+  };
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+```
+
+```json Example Response
+{
+  "_id": "507f1f77bcf86cd799439011",
+  "name": "John Doe",
+  "email": "john@example.com",
+  "role": "fixer",
+  "url_photo": "https://example.com/photo.jpg",
+  "telefono": "+598 99 123 456",
+  "workLocation": {
+    "lat": -34.9011,
+    "lng": -56.1645,
+    "direccion": "Av. 18 de Julio 1234",
+    "departamento": "Montevideo",
+    "pais": "Uruguay"
+  },
+  "description": "Experienced plumber with 10 years in the field",
+  "servicios": ["plumbing", "heating"],
+  "createdAt": "2024-01-15T10:30:00Z"
+}
+```
+</CodeGroup>
+
+### Get Users by Role
+
+Retrieve all users with a specific role.
+
+```typescript
+GET /api/user-profiles/role/{role}
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useGetUsersByRoleQuery } from '@/app/redux/services/userApi';
+
+const { data: fixers } = useGetUsersByRoleQuery('fixer');
+const { data: requesters } = useGetUsersByRoleQuery('requester');
+```
+
+**Path Parameters:**
+
+<ParamField path="role" type="string" required>
+  User role to filter by: `fixer`, `requester`, or `admin`
+</ParamField>
+
+### Update User Description
+
+Update a user's profile description.
+
+```typescript
+POST /api/user/{id}/description
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useUpdateDescriptionMutation } from '@/app/redux/services/userApi';
+
+const [updateDescription] = useUpdateDescriptionMutation();
+
+await updateDescription({
+  id: userId,
+  description: 'New bio text'
+});
+```
+
+**Request Body:**
+
+<ParamField body="id" type="string" required>
+  User ID
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  New description text
+</ParamField>
+
+### Update User Location
+
+Update a user's work location (primarily for fixers).
+
+```typescript
+PATCH /api/user/{id}/location
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useUpdateLocationMutation } from '@/app/redux/services/userApi';
+
+const [updateLocation] = useUpdateLocationMutation();
+
+await updateLocation({
+  id: userId,
+  location: {
+    lat: -34.9011,
+    lng: -56.1645,
+    direccion: 'Av. 18 de Julio 1234, Montevideo'
+  }
+});
+```
+
+**Request Body:**
+
+<ParamField body="id" type="string" required>
+  User ID
+</ParamField>
+
+<ParamField body="location.lat" type="number" required>
+  Latitude coordinate
+</ParamField>
+
+<ParamField body="location.lng" type="number" required>
+  Longitude coordinate
+</ParamField>
+
+<ParamField body="location.direccion" type="string">
+  Human-readable address
+</ParamField>
+
+**Response:**
+
+```typescript
+{
+  success: boolean;
+  user: IUser;
+}
+```
+
+### Convert to Fixer
+
+Convert a requester account to a fixer account.
+
+```typescript
+PATCH /api/user-profiles/{id}/convert-fixer
+```
+
+**RTK Query Hook:**
+
+```typescript
+import { useConvertToFixerMutation } from '@/app/redux/services/userApi';
+
+const [convertToFixer] = useConvertToFixerMutation();
+
+await convertToFixer({
+  id: userId,
+  profile: {
+    ci: '12345678',
+    services: [...],
+    paymentMethods: [...],
+    // ... other profile data
+  }
+});
+```
+
+**Request Body:**
+
+<ParamField body="id" type="string" required>
+  User ID to convert
+</ParamField>
+
+<ParamField body="profile" type="object" required>
+  Fixer profile data (services, location, payment methods, etc.)
+</ParamField>
+
+<Note>
+Converting to a fixer requires additional profile information such as services offered, payment methods, and identity verification (CI number).
+</Note>
+
+## TypeScript Interfaces
+
+```typescript ~/workspace/source/src/types/user.ts
+export interface IUser {
+  _id?: string;
+  id?: string;
+  name: string;
+  email: string;
+  url_photo?: string;
+  role: 'requester' | 'fixer' | 'admin';
+  authProviders?: Array<{
+    provider: string;
+    providerId: string;
+    password?: string;
+  }>;
+  telefono?: string;
+  ubicacion?: {
+    lat?: number;
+    lng?: number;
+    direccion?: string;
+    departamento?: string;
+    pais?: string;
+  };
+  ci?: string;
+  servicios?: string[];
+  vehiculo?: {
+    hasVehiculo?: boolean;
+    tipoVehiculo?: string;
+  };
+  fixerProfile?: string;
+  acceptTerms?: boolean;
+  metodoPago?: {
+    hasEfectivo?: boolean;
+    qr?: boolean;
+    tarjetaCredito?: boolean;
+  };
+  experience?: {
+    descripcion?: string;
+  };
+  workLocation?: {
+    lat?: number;
+    lng?: number;
+    direccion?: string;
+    departamento?: string;
+    pais?: string;
+  };
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+```
+
+## Cache Tags
+
+All user endpoints use the `User` cache tag. Mutations automatically invalidate this tag, triggering refetches of user queries.
+
+**Invalidated by:**
+- `createUserProfile`
+- `updateDescription`
+- `updateLocation`
+- `convertToFixer`
+
+**Provides cached data for:**
+- `getUserProfiles`
+- `getUserById`
+- `getUsersByRole`

@@ -1,0 +1,198 @@
+---
+title: 'Admin Overview'
+description: 'Understanding the admin role and capabilities in Servineo'
+---
+
+## Introduction
+
+The Admin role in Servineo provides comprehensive oversight and management capabilities for the entire platform. Administrators have access to user management, analytics, moderation tools, and system-wide statistics.
+
+<Info>
+The admin interface is accessible at `/user-admin` and requires authentication via email/password or Google OAuth.
+</Info>
+
+## Admin Capabilities
+
+<CardGroup cols={2}>
+  <Card title="User Management" icon="users" href="/admin/user-management">
+    Manage requesters, fixers, and other admins with full CRUD capabilities
+  </Card>
+  <Card title="Statistics Dashboard" icon="chart-line" href="/admin/statistics">
+    Access real-time analytics and usage metrics across the platform
+  </Card>
+  <Card title="Session Tracking" icon="clock">
+    Monitor user session starts and ends with historical data
+  </Card>
+  <Card title="Appointment Tracking" icon="calendar-check">
+    Track and manage active appointments across the system
+  </Card>
+</CardGroup>
+
+## Authentication
+
+Admins can authenticate using two methods:
+
+### Email & Password Login
+
+The admin login flow uses a secure API endpoint for credential verification:
+
+```typescript /user-admin/components/adminLogin.tsx
+const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+
+  try {
+    const data = await adminAPI.login({ email, password });
+
+    if (data.success) {
+      localStorage.setItem('adminToken', data.token);
+      localStorage.setItem('adminUser', JSON.stringify(data.user));
+      router.push(`/${locale}/user-admin/dashboard`);
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+  }
+};
+```
+
+### Google OAuth
+
+Admins can also sign in using their Google account:
+
+```typescript /user-admin/components/adminLogin.tsx
+const handleGoogleLogin = async () => {
+  const google = window.google;
+  const client = google?.accounts?.oauth2?.initTokenClient;
+
+  client({
+    client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+    scope: 'email profile',
+    callback: async (response: GoogleTokenResponse) => {
+      const data = await adminAPI.loginWithGoogle(response.credential);
+      
+      if (data.success) {
+        localStorage.setItem('adminToken', data.token);
+        localStorage.setItem('adminUser', JSON.stringify(data.user));
+        router.push(`/${locale}/user-admin/dashboard`);
+      }
+    },
+  }).requestAccessToken();
+};
+```
+
+<Warning>
+Admin tokens are stored in `localStorage` and validated on each dashboard access. Ensure secure handling of authentication credentials.
+</Warning>
+
+## User Role Distribution
+
+Servineo supports four primary user roles:
+
+- **Requesters**: Users who post service requests (typically ~72% of users)
+- **Fixers**: Service providers who fulfill requests (typically ~27% of users)
+- **Visitors**: Unauthenticated browsing users
+- **Admins**: Platform administrators with full access
+
+## API Integration
+
+The admin system communicates with the backend via RESTful APIs:
+
+```typescript /user-admin/lib/api.ts
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+export const adminAPI = {
+  // Authentication
+  login: async (credentials: { email: string; password: string }) => {
+    const response = await fetch(`${API_BASE}/api/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials),
+    });
+    return response.json();
+  },
+
+  // Token verification
+  verifyToken: async (token: string) => {
+    const response = await fetch(`${API_BASE}/api/admin/verify`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    return response.json();
+  },
+
+  // User statistics
+  getUserStats: async (token: string) => {
+    const response = await fetch(`${API_BASE}/api/admin/user-stats`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    return response.json();
+  },
+};
+```
+
+## Dashboard Overview
+
+The admin dashboard provides:
+
+<Steps>
+  <Step title="User Statistics">
+    Real-time counts of total users and breakdown by role (requesters, fixers, visitors, admins)
+  </Step>
+  <Step title="External Modules">
+    Quick access to specialized admin tools like Advanced Statistics and Appointment Tracking
+  </Step>
+  <Step title="Session Analytics">
+    Visual charts showing session start/end patterns over time
+  </Step>
+</Steps>
+
+## Security Features
+
+<Note>
+**Token Validation**: Every dashboard access validates the admin token with the backend
+
+**Auto-Redirect**: Invalid or expired tokens automatically redirect to the login page
+
+**Secure Storage**: Sensitive data is stored in `localStorage` with proper cleanup on logout
+</Note>
+
+```typescript /user-admin/components/adminDashboard.tsx
+useEffect(() => {
+  const checkAuthAndLoadData = async () => {
+    const token = localStorage.getItem('adminToken');
+    const adminData = localStorage.getItem('adminUser');
+
+    if (!token || !adminData) {
+      router.push('/es/user-admin');
+      return;
+    }
+
+    // Verify token validity
+    const authCheck = await adminAPI.verifyToken(token);
+    if (!authCheck.valid) {
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminUser');
+      router.push('/es/user-admin');
+      return;
+    }
+  };
+
+  checkAuthAndLoadData();
+}, [router]);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="User Management" icon="users" href="/admin/user-management">
+    Learn how to manage users, roles, and permissions
+  </Card>
+  <Card title="Statistics" icon="chart-bar" href="/admin/statistics">
+    Explore analytics and reporting features
+  </Card>
+</CardGroup>

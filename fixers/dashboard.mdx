@@ -1,0 +1,412 @@
+---
+title: Fixer Dashboard
+description: Complete guide to navigating and using your fixer dashboard
+---
+
+# Fixer Dashboard
+
+The fixer dashboard is your command center for managing your profile, job offers, and business performance on Servineo.
+
+## Dashboard Overview
+
+Access your dashboard at `/fixer/dashboard` after completing registration. The dashboard consists of:
+
+- **Profile Header**: Your profile card with key information
+- **Sidebar Navigation**: Quick access to all dashboard sections
+- **Main Content Area**: Displays the selected section content
+
+## Profile Header
+
+The profile header displays your essential information:
+
+<CardGroup cols={2}>
+  <Card title="Profile Photo" icon="user-circle">
+    Your profile picture with completion status indicator
+  </Card>
+  
+  <Card title="Profile Information" icon="id-card">
+    Name, description, contact details, and location
+  </Card>
+  
+  <Card title="Services & Skills" icon="wrench">
+    List of services you offer as skill tags
+  </Card>
+  
+  <Card title="Quick Actions" icon="bolt">
+    Edit profile and view rated jobs buttons
+  </Card>
+</CardGroup>
+
+### Profile Status Indicator
+
+```tsx
+{user.fixerProfile === 'completed' && (
+  <div className="badge-completed" title="Perfil Completo">
+    ✓
+  </div>
+)}
+```
+
+A green checkmark badge appears when your profile is fully completed and verified.
+
+### Editable Description
+
+Your profile description is prominently displayed and editable:
+
+<Steps>
+  <Step title="Click Edit Profile">
+    The description field becomes editable with a textarea
+  </Step>
+  
+  <Step title="Write Description">
+    Describe your experience and services (10-255 characters)
+  </Step>
+  
+  <Step title="Save Changes">
+    Click "Guardar" to update your profile
+  </Step>
+</Steps>
+
+**Description Validation:**
+- Minimum: 10 characters
+- Maximum: 255 characters
+- Character counter displayed
+- Real-time validation with Zod schema
+
+<Tip>
+A compelling description increases client trust. Highlight your expertise, years of experience, and what makes your service unique.
+</Tip>
+
+### Contact Information Display
+
+Your contact details are shown with icons:
+
+- **Email**: `user.email`
+- **Phone**: `user.telefono`
+- **Location**: `user.ubicacion.departamento` or `user.workLocation.direccion`
+- **CI**: National ID (displayed only to you)
+
+### Services Tags
+
+Services are displayed as colored badges:
+
+```tsx
+{user.servicios.map((servicio, index) => (
+  <span className="service-badge" key={index}>
+    {servicio}
+  </span>
+))}
+```
+
+### Payment and Vehicle Badges
+
+Additional capabilities shown as status badges:
+
+<CardGroup cols={4}>
+  <Card title="Vehicle" icon="car">
+    Green badge if you have a vehicle
+  </Card>
+  
+  <Card title="Cash" icon="money-bill">
+    Purple badge for cash payments
+  </Card>
+  
+  <Card title="QR" icon="qrcode">
+    Indigo badge for QR payments
+  </Card>
+  
+  <Card title="Card" icon="credit-card">
+    Orange badge for card payments
+  </Card>
+</CardGroup>
+
+## Sidebar Navigation
+
+The dashboard sidebar provides quick access to all sections:
+
+```typescript
+type Tab = 'offers' | 'certs' | 'experience' | 'portfolio' | 'location' | 'estadisticas';
+```
+
+### Navigation Sections
+
+<Steps>
+  <Step title="Job Offers">
+    Create and manage your service listings
+  </Step>
+  
+  <Step title="Certifications">
+    Upload professional certificates and credentials
+  </Step>
+  
+  <Step title="Experience">
+    Document your work history and expertise
+  </Step>
+  
+  <Step title="Portfolio">
+    Showcase photos of completed projects
+  </Step>
+  
+  <Step title="Location">
+    Update your work location and service area
+  </Step>
+  
+  <Step title="Statistics">
+    View job performance metrics and analytics
+  </Step>
+</Steps>
+
+### Active Tab Styling
+
+The active tab is highlighted:
+
+```tsx
+className={`nav-item ${
+  activeTab === 'offers'
+    ? 'bg-blue-50 text-blue-700 shadow-sm'
+    : 'text-gray-600 hover:bg-gray-50'
+}`}
+```
+
+## Dashboard Sections
+
+### 1. Job Offers Section
+
+Manage your service listings. See [Job Offers](/fixers/job-offers) for detailed documentation.
+
+**Key Features:**
+- Create new job offers
+- Edit existing offers
+- Toggle active/inactive status
+- Delete offers
+- Create promotions
+- Filter by status
+
+### 2. Certifications Section
+
+Upload and display professional certifications:
+
+```tsx
+<CertificationsSection fixerId={user._id || user.id} />
+```
+
+**Functionality:**
+- Upload certification documents
+- Display certification images
+- Add certification titles and descriptions
+- Remove outdated certifications
+
+<Note>
+Certifications build trust with clients. Upload licenses, training certificates, and professional credentials.
+</Note>
+
+### 3. Experience Section
+
+Showcase your professional background:
+
+```tsx
+<ExperienceSection fixerId={user._id || user.id} />
+```
+
+**What to Include:**
+- Years of experience
+- Previous companies/employers
+- Notable projects
+- Special skills or training
+- Professional achievements
+
+### 4. Portfolio Section
+
+Display photos of your completed work:
+
+```tsx
+<PortfolioSection fixerId={user._id || user.id} />
+```
+
+**Portfolio Features:**
+- Upload project photos
+- Organize by category
+- Add captions and descriptions
+- Delete photos
+
+<Tip>
+Before/after photos are extremely effective. Show the transformation your work provides.
+</Tip>
+
+### 5. Location Section
+
+Update your work location:
+
+```tsx
+<LocationSection
+  fixerId={user._id || user.id}
+  currentLocation={{
+    lat: user.workLocation?.lat ?? 0,
+    lng: user.workLocation?.lng ?? 0,
+    direccion: user.workLocation?.direccion || ''
+  }}
+/>
+```
+
+**Location Management:**
+- Interactive map interface
+- Drag marker to adjust position
+- Update street address
+- Save new location
+
+<Warning>
+Your location affects which job requests you receive. Keep it updated if you move or change service areas.
+</Warning>
+
+### 6. Statistics Section
+
+View comprehensive job analytics:
+
+```tsx
+<EstadisticasTrabajos />
+```
+
+**Metrics Displayed:**
+
+<CardGroup cols={3}>
+  <Card title="Completed" icon="check-circle">
+    Successfully finished jobs
+  </Card>
+  
+  <Card title="In Progress" icon="clock">
+    Currently active jobs
+  </Card>
+  
+  <Card title="Pending" icon="hourglass">
+    Jobs awaiting start
+  </Card>
+</CardGroup>
+
+#### Statistics Visualization
+
+Data is shown in:
+
+- **Pie Chart**: Visual distribution of job states
+- **Summary Table**: Detailed counts with percentages
+- **Total Count**: Overall job completion metric
+
+```typescript
+interface JobStatistics {
+  completed: number;
+  inProgress: number;
+  pending: number;
+  total: number;
+}
+```
+
+## Quick Actions
+
+### View Rated Jobs
+
+Access all jobs you've completed that have ratings:
+
+```tsx
+<button onClick={() => router.push('/es/view-rate-jobs')}>
+  Ver trabajos calificados
+</button>
+```
+
+This shows:
+- Client ratings and reviews
+- Job completion dates
+- Earnings per job
+- Overall rating trends
+
+### Edit Profile
+
+Toggle between view and edit modes:
+
+```typescript
+const [editingDescription, setEditingDescription] = useState(false);
+
+// When editing:
+if (editingDescription) {
+  // Show textarea and Save button
+} else {
+  // Show description text and Edit button
+}
+```
+
+## Profile Completeness
+
+Maximize your visibility by completing all sections:
+
+<Steps>
+  <Step title="Basic Info">
+    Name, photo, description, contact details ✓
+  </Step>
+  
+  <Step title="Services">
+    At least 3 services listed
+  </Step>
+  
+  <Step title="Portfolio">
+    Minimum 5 project photos
+  </Step>
+  
+  <Step title="Certifications">
+    Upload relevant credentials
+  </Step>
+  
+  <Step title="Experience">
+    Document your background
+  </Step>
+</Steps>
+
+<Info>
+Profiles with 100% completion receive 5x more job requests than incomplete profiles.
+</Info>
+
+## Responsive Design
+
+The dashboard adapts to different screen sizes:
+
+- **Desktop**: Sidebar + main content (2-column layout)
+- **Tablet**: Collapsible sidebar
+- **Mobile**: Stack layout with hamburger menu
+
+```tsx
+<div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+  <div className="lg:col-span-1">{/* Sidebar */}</div>
+  <div className="lg:col-span-3">{/* Main content */}</div>
+</div>
+```
+
+## Dashboard State Management
+
+The dashboard uses Redux for state:
+
+```typescript
+const { user: reduxUser } = useAppSelector((state) => state.user);
+```
+
+**State Updates:**
+- Profile edits update Redux store
+- Changes sync with backend API
+- Real-time updates across dashboard sections
+
+## Performance Optimization
+
+- Lazy loading for images in portfolio
+- Paginated job offers list
+- Debounced search and filter operations
+- Cached statistics data
+
+<Note>
+The dashboard automatically refreshes data every 30 seconds to show real-time updates for incoming job requests.
+</Note>
+
+## Next Steps
+
+- Learn to [create job offers](/fixers/job-offers)
+- Set up your [digital wallet](/fixers/wallet)
+- Manage your [calendar and availability](/fixers/calendar)
+
+<Tip>
+Spend 10-15 minutes daily updating your dashboard. Add new portfolio photos, respond to messages, and check statistics to stay on top of your business.
+</Tip>

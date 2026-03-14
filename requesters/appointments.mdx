@@ -1,0 +1,431 @@
+---
+title: 'Appointments'
+description: 'Scheduling and managing appointments with service providers'
+---
+
+## Overview
+
+Appointments in Servineo allow requesters to schedule specific times with fixers for service delivery. The appointment system supports both virtual and in-person meetings with comprehensive tracking and management features.
+
+## Appointment Types
+
+Servineo supports two modalities for appointments:
+
+### Virtual Appointments
+
+- **Meeting Links**: Google Meet or Zoom
+- **Remote Consultations**: For planning, estimates, or digital services
+- **No Physical Location**: Service delivered online
+
+### In-Person Appointments
+
+- **Physical Location**: Service at a specific address
+- **Map Integration**: Set exact coordinates
+- **Address Display**: Reverse-geocoded location name
+
+```typescript
+type AppointmentModality = 'virtual' | 'presential';
+
+interface Appointment {
+  _id: string;
+  id_fixer: string;
+  id_requester: string;
+  selected_date: { $date: string };
+  current_requester_name: string;
+  appointment_type: AppointmentModality;
+  appointment_description: string;
+  link_id: string;                    // Meeting link for virtual
+  current_requester_phone: string;
+  starting_time: { $date: string };
+  finishing_time: { $date: string };
+  schedule_state: string;
+  display_name_location: string;      // Address for presential
+  lat: string | null;
+  lon: string | null;
+  cancelled_fixer: boolean;
+  reprogram_reason: string;
+  createdAt: { $date: string };
+  updatedAt: { $date: string };
+}
+```
+
+## Creating an Appointment
+
+<Steps>
+  <Step title="Open Appointment Form">
+    Click on an available time slot in the fixer's calendar
+  </Step>
+  <Step title="Enter Client Details">
+    Provide client name and contact information
+  </Step>
+  <Step title="Choose Modality">
+    Select virtual or in-person appointment
+  </Step>
+  <Step title="Add Description">
+    Describe the work to be performed
+  </Step>
+  <Step title="Set Location/Link">
+    Add meeting link (virtual) or location (in-person)
+  </Step>
+  <Step title="Confirm & Submit">
+    Review details and create the appointment
+  </Step>
+</Steps>
+
+## Appointment Form Fields
+
+### Client Information
+
+#### Client Name
+
+- **Validation**: Letters only (including accented characters)
+- **Max Length**: 50 characters
+- **Pattern**: `/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/`
+
+```typescript
+const clientSchema = z.string()
+  .regex(/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/, 'Ingrese un nombre de cliente válido')
+  .nonempty('Ingrese un nombre de cliente')
+  .max(50, 'El nombre no puede tener más de 50 caracteres');
+```
+
+#### Contact Number
+
+- **Format**: 8 digits starting with 6 or 7
+- **Pattern**: `/^[67]\d{7}$/`
+- **Example**: 71234567, 69876543
+
+<Note>
+Bolivian mobile numbers start with 6 or 7 and have 8 digits total.
+</Note>
+
+### Appointment Details
+
+#### Description
+
+- **Purpose**: Describe the work or consultation
+- **Max Length**: 300 characters
+- **Required**: Must not be empty
+
+```typescript
+const descriptionSchema = z.string()
+  .nonempty('Ingrese una descripción de trabajo')
+  .max(300, 'La descripción no puede tener más de 300 caracteres');
+```
+
+#### Date and Time
+
+- **Selected Date**: Automatically set from calendar click
+- **Starting Time**: Beginning of appointment (ISO 8601)
+- **Finishing Time**: End of appointment (1 hour after start)
+- **Time Adjustment**: Backend receives UTC-4 hours
+
+```typescript
+function parseDatetime(datetimeISO: string) {
+  const originalDate = new Date(datetimeISO);
+  
+  // Adjust for backend timezone (UTC-4)
+  const adjustedStart = new Date(originalDate.getTime() - 4 * 60 * 60 * 1000);
+  const adjustedEnd = new Date(adjustedStart.getTime() + 60 * 60 * 1000);
+  
+  return {
+    selected_date: adjustedStart.toISOString().split('T')[0],
+    starting_time: adjustedStart.toISOString(),
+    finishing_time: adjustedEnd.toISOString(),
+  };
+}
+```
+
+<Warning>
+Appointment times are stored in UTC but displayed in local timezone. The system automatically handles timezone conversion.
+</Warning>
+
+### Modality-Specific Fields
+
+#### For Virtual Appointments
+
+**Meeting Link** (Required)
+
+- **Accepted Platforms**: Google Meet, Zoom
+- **Pattern**: `/^(https?:\/\/)?(meet\.google\.com|zoom\.us)\/[^\s]+$/`
+- **Examples**:
+  - `https://meet.google.com/abc-defg-hij`
+  - `https://zoom.us/j/1234567890`
+
+```typescript
+const virtualSchema = baseSchema.extend({
+  modality: z.literal('virtual'),
+  meetingLink: z.string()
+    .regex(
+      /^(https?:\/\/)?(meet\.google\.com|zoom\.us)\/[^\s]+$/,
+      'Ingrese un enlace válido de Meet o Zoom'
+    )
+    .nonempty('Ingrese un enlace de Meet o Zoom'),
+  location: z.undefined().optional(),
+});
+```
+
+<Tip>
+Create the meeting link before scheduling the appointment. This ensures you have a valid link ready.
+</Tip>
+
+#### For In-Person Appointments
+
+**Location** (Required)
+
+```typescript
+interface AppointmentLocation {
+  lat: number;
+  lon: number;
+  address: string;
+}
+
+const presentialSchema = baseSchema.extend({
+  modality: z.literal('presential'),
+  meetingLink: z.undefined().optional(),
+  location: z.object({
+    lat: z.number(),
+    lon: z.number(),
+    address: z.string().nonempty('Seleccione una ubicación')
+  })
+  .nullable()
+  .refine((val) => val !== null, { message: 'Seleccione una ubicación' })
+  .refine(
+    (val) => val?.address !== 'No se pudo obtener la dirección',
+    { message: 'Seleccione una ubicación.' }
+  ),
+});
+```
+
+**Location Selection Process:**
+
+1. Click "Seleccionar ubicación" button
+2. Interactive map modal opens
+3. Click on map to set coordinates
+4. System performs reverse geocoding to get address
+5. Review and confirm location
+
+<Info>
+The map uses Leaflet and OpenStreetMap for accurate location selection and geocoding.
+</Info>
+
+## Appointment States
+
+Appointments progress through different states:
+
+```typescript
+type ScheduleState = 
+  | 'booked'        // Initial state after creation
+  | 'confirmed'     // Confirmed by both parties
+  | 'in_progress'   // Currently happening
+  | 'completed'     // Finished successfully
+  | 'cancelled'     // Cancelled by requester or fixer
+  | 'rescheduled';  // Moved to different time
+```
+
+<Steps>
+  <Step title="Booked">
+    Appointment created and scheduled
+  </Step>
+  <Step title="Confirmed">
+    Both parties confirmed attendance
+  </Step>
+  <Step title="In Progress">
+    Service is currently being provided
+  </Step>
+  <Step title="Completed">
+    Service finished, ready for payment
+  </Step>
+</Steps>
+
+## Managing Appointments
+
+### Viewing Appointments
+
+Access your appointments from:
+
+- **Calendar View**: See appointments on interactive calendar
+- **List View**: Table of upcoming and past appointments
+- **Map View**: Geographic distribution of appointments
+
+```typescript
+interface AppointmentView {
+  _id: string;
+  fixerName?: string;
+  requesterName?: string;
+  date?: string;
+  starting_time?: string;
+  status?: string;
+  lat: string | number;
+  lon: string | number;
+}
+```
+
+### Appointment Details Page
+
+Each appointment has a detail page showing:
+
+- **Client Information**: Name and contact
+- **Description**: Work to be performed
+- **Schedule**: Date and time
+- **Location/Link**: Where the service will happen
+- **Status**: Current appointment state
+- **Actions**: Cancel, reschedule, or register job
+
+## Editing Appointments
+
+### Reschedule
+
+To change appointment time:
+
+<Steps>
+  <Step title="Open Appointment">
+    Navigate to appointment details
+  </Step>
+  <Step title="Click Reschedule">
+    Select reschedule option
+  </Step>
+  <Step title="Provide Reason">
+    Explain why rescheduling is needed
+  </Step>
+  <Step title="Select New Time">
+    Choose new date and time from calendar
+  </Step>
+  <Step title="Confirm">
+    Submit reschedule request
+  </Step>
+</Steps>
+
+```typescript
+interface RescheduleData {
+  appointmentId: string;
+  newDate: string;
+  newStartTime: string;
+  newEndTime: string;
+  reason: string;
+}
+```
+
+<Warning>
+Rescheduling may require confirmation from the fixer. Both parties must agree to the new time.
+</Warning>
+
+### Edit Location
+
+For in-person appointments, you can update the location:
+
+- Open appointment details
+- Click "Edit Location"
+- Select new location on map
+- Save changes
+
+### Cancel Appointment
+
+To cancel an appointment:
+
+1. Navigate to appointment details
+2. Click "Cancel Appointment"
+3. Provide cancellation reason (optional)
+4. Confirm cancellation
+
+```typescript
+interface CancelAppointmentPayload {
+  appointmentId: string;
+  cancelledBy: 'requester' | 'fixer';
+  reason?: string;
+}
+```
+
+<Note>
+Cancellation policies may vary by fixer. Check terms before cancelling close to appointment time.
+</Note>
+
+## Appointment Tracking
+
+### Real-time Updates
+
+The tracking page (`/tracking-appointments`) provides:
+
+- **Live Map**: See active appointments on map
+- **Metrics Cards**: Total, active, and cancelled counts
+- **Fixer Statistics**: Performance data by provider
+- **Date Filters**: Filter by date range
+
+```typescript
+interface TrackingMetrics {
+  total: number;      // Total appointments
+  active: number;     // Currently in progress
+  cancelled: number;  // Cancelled appointments
+}
+```
+
+### Status Indicators
+
+Appointments are color-coded by status:
+
+- **Green**: Confirmed and upcoming
+- **Blue**: In progress
+- **Gray**: Completed
+- **Red**: Cancelled or rescheduled
+
+## Notifications
+
+You'll receive notifications for:
+
+- **Confirmation**: When fixer confirms appointment
+- **Reminders**: Before appointment starts
+- **Changes**: If fixer requests reschedule
+- **Completion**: When service is marked complete
+
+<Info>
+Notification preferences can be managed in your profile settings.
+</Info>
+
+## Integration with Job Requests
+
+Appointments can be created from job requests:
+
+```typescript
+interface CreateJobRequestPayload {
+  // ... other fields
+  appointmentId?: string;  // Link to existing appointment
+}
+```
+
+When a job request is accepted:
+1. Requester creates appointment
+2. Appointment is linked to job request
+3. Status updates reflect in both systems
+
+## Best Practices
+
+### Scheduling
+
+- **Book in Advance**: Schedule appointments well ahead of time
+- **Confirm Early**: Confirm attendance as soon as possible
+- **Be Punctual**: Arrive/be ready at scheduled time
+- **Communicate**: Message fixer if running late
+
+### Virtual Appointments
+
+- **Test Links**: Verify meeting links work before appointment
+- **Check Connection**: Ensure stable internet connection
+- **Have Backup**: Have phone number ready if video fails
+
+### In-Person Appointments
+
+- **Verify Location**: Double-check address is correct
+- **Provide Access**: Ensure fixer can access the location
+- **Be Available**: Be present during scheduled time
+- **Prepare Space**: Have work area ready for fixer
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Job Requests" icon="briefcase" href="/requesters/job-requests">
+    Create job requests that lead to appointments
+  </Card>
+  <Card title="Payments" icon="credit-card" href="/requesters/payments">
+    Pay for completed appointments
+  </Card>
+</CardGroup>
