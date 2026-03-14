@@ -1,0 +1,132 @@
+{
+  "projectType": "saas",
+  "projectName": "Servineo Frontend",
+  "projectDescription": "A service marketplace platform connecting customers with skilled service providers for home and professional services.",
+  "theme": "palm",
+  "primaryColor": "#3B82F6",
+  "lightColor": "#60A5FA",
+  "darkColor": "#1E40AF",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "features"
+            ]
+          },
+          {
+            "group": "For Requesters",
+            "pages": [
+              "requesters/overview",
+              "requesters/finding-fixers",
+              "requesters/job-requests",
+              "requesters/appointments",
+              "requesters/payments"
+            ]
+          },
+          {
+            "group": "For Fixers",
+            "pages": [
+              "fixers/overview",
+              "fixers/getting-started",
+              "fixers/dashboard",
+              "fixers/job-offers",
+              "fixers/calendar",
+              "fixers/wallet"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/authentication",
+              "features/search-filters",
+              "features/ratings-reviews",
+              "features/payment-system",
+              "features/notifications",
+              "features/multilingual"
+            ]
+          },
+          {
+            "group": "Admin",
+            "pages": [
+              "admin/overview",
+              "admin/user-management",
+              "admin/statistics"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Developer",
+        "groups": [
+          {
+            "group": "Architecture",
+            "pages": [
+              "developer/overview",
+              "developer/tech-stack",
+              "developer/project-structure",
+              "developer/state-management"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "developer/components/overview",
+              "developer/components/common",
+              "developer/components/forms",
+              "developer/components/maps"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "developer/integrations/google-oauth",
+              "developer/integrations/stripe",
+              "developer/integrations/maps",
+              "developer/integrations/recaptcha"
+            ]
+          },
+          {
+            "group": "API",
+            "pages": [
+              "developer/api/overview",
+              "developer/api/authentication",
+              "developer/api/users",
+              "developer/api/jobs",
+              "developer/api/appointments",
+              "developer/api/payments"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Dual-role user system (Requesters and Fixers)",
+    "Advanced service search with filters",
+    "Real-time appointment calendar",
+    "Integrated payment processing with Stripe",
+    "Rating and review system",
+    "Multi-language support (English/Spanish)",
+    "Interactive maps for service location",
+    "Job offer marketplace",
+    "Digital wallet for fixers",
+    "Admin dashboard with statistics"
+  ],
+  "publicApiSurface": [
+    "Authentication (Google OAuth, JWT)",
+    "User Management (/api/users)",
+    "Job Requests (/api/jobs)",
+    "Job Offers (/api/job-offers)",
+    "Appointments (/api/appointments)",
+    "Payments (/api/payments)",
+    "Fixer Services (/api/fixers)",
+    "Promotions (/api/promotions)",
+    "Statistics (/api/statistics)"
+  ]
+}
